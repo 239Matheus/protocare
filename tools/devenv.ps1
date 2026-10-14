@@ -64,6 +64,10 @@ switch ($Command) {
         & docker exec $Container python3 /tmp/nrepl_eval.py 3447 "(do (require (quote shadow.cljs.devtools.api)) (str (shadow.cljs.devtools.api/compile :main)))"
         Write-Host "--- CSS, templates and translations ---"
         & docker exec $Container sudo -u penpot bash -lc "cd ~/penpot/frontend && node ./scripts/build-app-assets.js"
+        # css/ui.css (styles of the DS menu and modal, from packages/ui) is
+        # not produced by build-app-assets; without it menus render unstyled.
+        Write-Host "--- packages/ui (css/ui.css), only when missing ---"
+        & docker exec $Container sudo -u penpot bash -lc "cd ~/penpot/frontend && (test -f resources/public/css/ui.css || (cd packages/ui && pnpm run build > /tmp/ui-build.txt 2>&1 && echo built ui.css))"
         Write-Host "Done. Reload the browser tab."
     }
     "down"     { Invoke-Manage "stop-devenv" }

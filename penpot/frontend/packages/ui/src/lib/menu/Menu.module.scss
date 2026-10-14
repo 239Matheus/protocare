@@ -23,12 +23,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-xxs);
-  min-inline-size: $sz-160;
+  inline-size: max-content;
+  min-inline-size: px2rem(220);
   max-block-size: inherit;
-  padding-block: var(--sp-xs);
-  padding-inline: var(--sp-xxs);
+  padding-block: var(--sp-s);
+  padding-inline: var(--sp-s);
   margin: 0;
-  border-radius: $br-8;
+
+  // Proto Care: Figma-like menu (rounder, roomier, solid hover)
+  border-radius: $br-12;
   border: $b-1 solid var(--color-background-quaternary);
   background-color: var(--color-background-tertiary);
   overflow-y: auto;
@@ -37,7 +40,7 @@
 }
 
 .menuItem {
-  @include use-typography("body-small");
+  @include use-typography("body-medium");
 
   display: flex;
   flex: 0 0 auto;
@@ -50,14 +53,20 @@
   cursor: pointer;
   outline: none;
 
-  &[data-hovered],
+  // Figma: one solid highlight, under the pointer or the keyboard
   &[data-focused] {
     background-color: var(--color-background-quaternary);
   }
 
+  &[data-hovered],
   &[data-focus-visible] {
-    background-color: var(--color-background-tertiary);
-    outline: $b-1 solid var(--color-accent-primary);
+    background-color: var(--color-accent-primary);
+    color: var(--color-background-primary);
+  }
+
+  &[data-hovered] .subMenuChevron,
+  &[data-focus-visible] .subMenuChevron {
+    color: var(--color-background-primary);
   }
 
   &[data-disabled] {
@@ -120,7 +129,7 @@
 .separator {
   flex: 0 0 auto;
   block-size: $b-1;
-  margin-block: var(--sp-xxs);
+  margin-block: var(--sp-xs);
   margin-inline: 0;
   border: none;
   background-color: var(--color-background-quaternary);
