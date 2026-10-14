@@ -51,6 +51,7 @@
    [common-tests.geom-shapes-tree-seq-test]
    [common-tests.geom-snap-test]
    [common-tests.geom-test]
+   [common-tests.governance.rules-test]
    [common-tests.governance.token-color-test]
    [common-tests.helpers-test]
    [common-tests.logging-test]
@@ -154,6 +155,7 @@
    'common-tests.geom-shapes-tree-seq-test
    'common-tests.geom-snap-test
    'common-tests.geom-test
+   'common-tests.governance.rules-test
    'common-tests.governance.token-color-test
    'common-tests.helpers-test
    'common-tests.logging-test

@@ -62,7 +62,11 @@
    [:attribute {:optional true} :keyword]
    [:severity schema:severity]
    [:message :string]
+   ;; Arguments of the localized message/recommendation in the UI
+   ;; (`governance.rule.<id>.message`); `:message` is the English fallback.
+   [:message-args {:optional true} [:vector :string]]
    [:recommendation {:optional true} :string]
+   [:recommendation-args {:optional true} [:vector :string]]
    [:expected-value {:optional true} :any]
    [:current-value {:optional true} :any]
    [:candidates {:optional true} [:vector :string]]

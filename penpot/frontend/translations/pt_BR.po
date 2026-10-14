@@ -5026,7 +5026,211 @@ msgid "workspace.governance.area.usability"
 msgstr "Teste de usabilidade"
 
 msgid "workspace.governance.area.usability.desc"
-msgstr "Tarefas e roteiros sobre protótipos"
+msgstr "Protótipo pronto para teste: links, fluxos e telas sem saída"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.attribute.fill"
+msgstr "preenchimento"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.attribute.stroke"
+msgstr "borda"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.edge.left"
+msgstr "esquerda"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.edge.top"
+msgstr "superior"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-color.title"
+msgstr "Uso de tokens de cor"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-color.message"
+msgstr "A cor de %s %s está aplicada como valor literal."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-color.message-missing"
+msgstr "A cor de %s %s não existe no design system."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-color.recommendation"
+msgstr "Troque o valor literal pelo token %s."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-color.recommendation-missing"
+msgstr "Use um token de cor existente ou peça ao time do design system para criar um."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-spacing.title"
+msgstr "Uso de tokens de espaçamento"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-spacing.message"
+msgstr "O espaçamento do layout usa valores literais (%s)."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-spacing.recommendation"
+msgstr "Vincule os tokens de espaçamento com os mesmos valores."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-spacing.recommendation-scale"
+msgstr "Use valores da escala de espaçamento."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-radius.title"
+msgstr "Uso de tokens de raio"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-radius.message"
+msgstr "O raio de canto %s é um valor literal."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-radius.recommendation"
+msgstr "Vincule o token de raio com o mesmo valor."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-radius.recommendation-scale"
+msgstr "Use um raio do design system."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-typography.title"
+msgstr "Uso de tokens de tipografia"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-typography.message"
+msgstr "O estilo de texto %s não está vinculado a um token de tipografia."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-typography.recommendation"
+msgstr "Aplique o token de tipografia %s, que tem os mesmos valores."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.token-typography.recommendation-scale"
+msgstr "Use um dos estilos tipográficos do design system."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-contrast.title"
+msgstr "Contraste do texto"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-contrast.message"
+msgstr "Texto %s sobre %s tem contraste %s; o WCAG AA exige %s."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-contrast.recommendation"
+msgstr "Use uma cor de texto mais escura ou um fundo mais claro (ou o contrário)."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-text-size.title"
+msgstr "Tamanho mínimo de texto"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-text-size.message"
+msgstr "O tamanho de texto %s está abaixo do mínimo de %s."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-text-size.recommendation"
+msgstr "Use um estilo de texto maior do design system."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-touch-target.title"
+msgstr "Área de toque"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-touch-target.message"
+msgstr "A área interativa %s é menor que %s."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.accessibility-touch-target.recommendation"
+msgstr "Aumente o alvo ou o padding (44x44 é o recomendado em telas de toque)."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.layout-alignment.title"
+msgstr "Quase alinhado"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.layout-alignment.message"
+msgstr "\"%s\" está %s fora da borda %s de \"%s\"."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.layout-alignment.recommendation"
+msgstr "Alinhe exatamente, ou afaste claramente se a diferença for intencional."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.layout-spacing.title"
+msgstr "Ritmo vertical"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.layout-spacing.message"
+msgstr "O espaço de %s acima de \"%s\" é quase o %s usado no resto da coluna."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.layout-spacing.recommendation"
+msgstr "Use o mesmo espaço (%s) para manter o ritmo."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.naming-default-name.title"
+msgstr "Nome padrão de camada"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.naming-default-name.message"
+msgstr "A camada mantém o nome padrão \"%s\"."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.naming-default-name.recommendation"
+msgstr "Dê à camada o nome do seu papel (ex.: \"Fundo do cabeçalho\", \"Avatar\")."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.naming-duplicate.title"
+msgstr "Nomes repetidos entre irmãos"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.naming-duplicate.message"
+msgstr "\"%s\" tem uma camada irmã com o mesmo nome."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.naming-duplicate.recommendation"
+msgstr "Dê a cada camada um nome que diga o que ela é (ex.: \"Campo e-mail\", \"Campo senha\")."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-broken-link.title"
+msgstr "Link quebrado no protótipo"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-broken-link.message"
+msgstr "\"%s\" navega para um quadro que não existe."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-broken-link.recommendation"
+msgstr "Aponte a interação para um quadro existente ou remova-a."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-flow.title"
+msgstr "Fluxo do protótipo"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-flow.message"
+msgstr "A página \"%s\" tem navegação mas nenhum fluxo de protótipo."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-flow.recommendation"
+msgstr "Crie um fluxo começando na primeira tela para quem testa saber por onde começar."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-dead-end.title"
+msgstr "Tela sem saída"
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-dead-end.message"
+msgstr "\"%s\" é alcançada por navegação mas não tem saída."
+
+#: src/app/main/ui/workspace/governance_texts.cljs
+msgid "workspace.governance.rule.usability-dead-end.recommendation"
+msgstr "Adicione uma ação de voltar ou avançar para o teste continuar."
 
 msgid "workspace.governance.title"
 msgstr "Auditoria"

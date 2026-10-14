@@ -10,15 +10,28 @@
    Rules are data. Adding a rule means adding a map to `default-rules`
    (or passing your own vector); the engine never changes."
   (:require
+   [app.governance.areas :as areas]
    [app.governance.rule :as rule]
-   [app.governance.rules.token-color :as token-color]))
+   [app.governance.rules.accessibility :as accessibility]
+   [app.governance.rules.layout :as layout]
+   [app.governance.rules.naming :as naming]
+   [app.governance.rules.token-color :as token-color]
+   [app.governance.rules.token-values :as token-values]
+   [app.governance.rules.usability :as usability]))
 
 (def version
   "Bump when rules or result shapes change; stored with every audit."
-  "0.1.0")
+  "0.2.0")
 
 (def default-rules
-  [token-color/rule])
+  (into [token-color/rule
+         token-values/spacing-rule
+         token-values/radius-rule
+         token-values/typography-rule]
+        (concat accessibility/rules
+                layout/rules
+                naming/rules
+                usability/rules)))
 
 (defn- configure
   "Merges per-rule policy config (`{rule-id {:enabled? .. :severity .. :options ..}}`)
@@ -46,6 +59,7 @@
      :fixable (count (filter :fix-available results))
      :by-severity (count-by :severity)
      :by-category (count-by :category)
+     :by-area (->> results (keep #(some-> (:category %) areas/area-of name)) (frequencies))
      :by-rule (count-by :rule-id)
      :by-page (count-by :page-id)
      :token-adherence (when (some? adherence) (double adherence))}))

@@ -21,6 +21,7 @@
    [app.main.ui.ds.controls.select :refer [select*]]
    [app.main.ui.ds.foundations.assets.icon :as i]
    [app.main.ui.ds.product.empty-state :refer [empty-state*]]
+   [app.main.ui.workspace.governance-texts :as texts]
    [app.util.i18n :refer [tr]]
    [okulary.core :as l]
    [rumext.v2 :as mf]))
@@ -111,7 +112,7 @@
 (mf/defc area-row*
   {::mf/private true}
   [{:keys [area-id open-count selected on-select]}]
-  (let [active?  (areas/active? area-id)
+  (let [active?  (areas/active? area-id engine/default-rules)
         on-click (mf/use-fn (mf/deps area-id on-select)
                             #(on-select (name area-id)))]
     [:li
@@ -158,7 +159,7 @@
                                    :severity-info (= severity "info"))}
        (severity-label severity)]
       [:span {:class (stl/css :rule-title)}
-       (get rule-titles (:rule-id result) (:rule-id result))]
+       (texts/rule-title (:rule-id result) (get rule-titles (:rule-id result)))]
       (when-not open?
         [:span {:class (stl/css :status-pill)} (status-label status)])]
 
@@ -167,7 +168,7 @@
       (when page-name
         [:span {:class (stl/css :page-name)} (dm/str " · " page-name)])]
 
-     [:p {:class (stl/css :result-message)} (:message result)]
+     [:p {:class (stl/css :result-message)} (texts/message result)]
 
      (when (some? (:current-value result))
        [:dl {:class (stl/css :result-values)}
@@ -178,8 +179,8 @@
            [:dt (tr "workspace.governance.expected")]
            [:dd {:class (stl/css :expected-value)} (str (:expected-value result))]])])
 
-     (when (:recommendation result)
-       [:p {:class (stl/css :result-recommendation)} (:recommendation result)])
+     (when-let [recommendation (texts/recommendation result)]
+       [:p {:class (stl/css :result-recommendation)} recommendation])
 
      [:footer {:class (stl/css :result-actions)}
       [:> icon-button* {:variant "ghost"

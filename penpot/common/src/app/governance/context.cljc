@@ -16,6 +16,7 @@
    [app.common.types.file :as ctf]
    [app.common.types.pages-list :as ctpl]
    [app.common.types.tokens-status :as ctos]
+   [app.governance.shapes :as gsh]
    [cuerdas.core :as str]))
 
 ;; --- Colors
@@ -109,19 +110,78 @@
   [ctx token-name]
   (normalize-color (resolve-token-value (:tokens ctx) token-name)))
 
+(defn- resolve-part
+  "Resolves a value that may be a full `{reference}`."
+  [tokens value]
+  (if-let [[_ ref] (and (string? value) (re-matches ref-re value))]
+    (resolve-token-value tokens ref)
+    value))
+
+(defn number-index
+  "Map number -> sorted token names, for active tokens of `types` whose
+   value resolves to a plain number."
+  [tokens types]
+  (let [index (->> tokens
+                   (filter (fn [[_ token]] (contains? types (:type token))))
+                   (reduce (fn [index [name _]]
+                             (if-let [n (gsh/->num (resolve-token-value tokens name))]
+                               (update index n (fnil conj []) name)
+                               index))
+                           {}))]
+    (d/update-vals index (comp vec sort))))
+
+(defn typography-index
+  "Map token name -> {:size :weight :line-height} for active typography
+   tokens (composite values with references resolved)."
+  [tokens]
+  (->> tokens
+       (filter (fn [[_ token]] (= :typography (:type token))))
+       (keep (fn [[name _]]
+               (let [value (resolve-token-value tokens name)]
+                 (when (map? value)
+                   (let [part #(resolve-part tokens (get value %))]
+                     [name {:size (gsh/->num (part :font-size))
+                            :weight (gsh/->weight (part :font-weight))
+                            :line-height (gsh/->num (part :line-height))}])))))
+       (into (sorted-map))))
+
+(defn lookup-number
+  "Token names whose value equals `n` in a number index."
+  [index n]
+  (when (some? n)
+    (some (fn [[k names]] (when (gsh/same-num? k n) names)) index)))
+
 ;; --- Context
 
 (def default-options
   {;; Library colors (styles) count as governed values.
    :allow-library-colors? true
    ;; Hidden layers are still audited.
-   :skip-hidden? false})
+   :skip-hidden? false
+   ;; accessibility/text-size: smallest allowed font size (px).
+   :min-font-size 12
+   ;; accessibility/touch-target: WCAG 2.2 AA 2.5.8 minimum (px).
+   :min-touch-target 24
+   ;; layout/alignment: edges closer than this (px) but not equal.
+   :alignment-tolerance 3
+   ;; layout/spacing: largest gap (px) checked against the spacing scale.
+   :max-rhythm-gap 48})
 
 (defn- page->ctx-page
   [page]
   {:id (:id page)
    :name (:name page)
-   :objects (:objects page)})
+   :objects (:objects page)
+   :flows (:flows page)
+   :background (:background page)})
+
+(defn- components-of
+  "Map component-id -> {:name :path} for the file and its libraries."
+  [file libraries]
+  (into {}
+        (comp (mapcat (fn [f] (vals (:components (ctf/file-data f)))))
+              (map (fn [c] [(:id c) (select-keys c [:name :path])])))
+        (cons file (vals libraries))))
 
 (defn build-context
   "Builds the audit context for `file`.
@@ -134,12 +194,18 @@
   (let [fdata  (ctf/file-data file)
         pages  (cond->> (ctpl/pages-seq fdata)
                  (some? page-id) (filter #(= page-id (:id %))))
-        tokens (active-tokens file libraries)]
+        tokens  (active-tokens file libraries)
+        spacing (number-index tokens #{:spacing})]
     {:file-id (:id file)
      :file-name (:name file)
      :pages (mapv page->ctx-page pages)
+     :components (components-of file libraries)
      :tokens tokens
      :color-index (color-index tokens)
+     :spacing-index spacing
+     :spacing-scale (into (sorted-set) (keys spacing))
+     :radius-index (number-index tokens #{:border-radius})
+     :typography-index (typography-index tokens)
      :options (merge default-options options)}))
 
 (defn page-objects

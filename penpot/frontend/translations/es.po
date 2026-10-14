@@ -9837,7 +9837,7 @@ msgid "workspace.governance.area.usability"
 msgstr "Pruebas de usabilidad"
 
 msgid "workspace.governance.area.usability.desc"
-msgstr "Tareas y guiones sobre prototipos"
+msgstr "Prototipo listo para pruebas: enlaces, flujos y pantallas sin salida"
 
 #: src/app/main/ui/dashboard/design_system_callout.cljs
 msgid "dashboard.protocare-ds.title"

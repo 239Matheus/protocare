@@ -58,6 +58,15 @@
         :stroke-color
         (update shape :strokes replace-color :stroke-color from resolved)))))
 
+(defmethod apply-fix-to-shape :apply-tokens
+  ;; Binds tokens whose values already match the shape (spacing, radius,
+  ;; typography): only `:applied-tokens` changes, the visual stays.
+  [{:keys [tokens]} shape ctx]
+  (doseq [[_ token-name] tokens]
+    (when-not (get-in ctx [:tokens token-name])
+      (throw (ex-info "token not active" {:token-name token-name}))))
+  (update shape :applied-tokens merge tokens))
+
 (defn generate-fix-changes
   "Appends to `changes` the operations that apply the fixes of `results`
    (only those with `:fix-available`). Changes are grouped per page and

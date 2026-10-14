@@ -9,6 +9,7 @@
    [app.common.types.shape :as cts]
    [app.common.types.tokens-lib :as ctob]
    [app.common.uuid :as uuid]
+   [app.governance.engine :as engine]
    [app.rpc :as-alias rpc]
    [backend-tests.helpers :as th]
    [clojure.test :as t]))
@@ -129,7 +130,9 @@
                               :team-id team-id})]
         (t/is (nil? (:error out)))
         (t/is (= {} (get-in out [:result :rules])))
-        (t/is (= ["token/color"] (mapv :id (get-in out [:result :available-rules]))))))
+        (t/is (= (mapv :id engine/default-rules)
+                 (mapv :id (get-in out [:result :available-rules]))))
+        (t/is (some #{"token/color"} (mapv :id (get-in out [:result :available-rules]))))))
 
     (t/testing "owner can update the policy"
       (let [out (th/command! {::th/type :update-governance-policy
@@ -232,6 +235,127 @@
         (t/is (nil? (:error out)))
         (t/is (= :critical (get-in out [:result :rules "token/color" :severity])))))))
 
+(t/deftest audits-leave-evidence
+  (let [owner   (th/create-profile* 1 {:is-active true})
+        member  (th/create-profile* 2 {:is-active true})
+        team-id (:default-team-id owner)
+        _       (th/create-team-role* {:team-id team-id
+                                       :profile-id (:id member)
+                                       :role :editor})
+        {:keys [file page-id literal]} (seed-file! owner)
+        audit1  (:result (th/command! {::th/type :run-audit
+                                       ::rpc/profile-id (:id owner)
+                                       :file-id (:id file)}))
+        finding (first (:results audit1))]
+
+    (t/testing "findings carry their area and first detection time"
+      (t/is (= "design-system" (:area finding)))
+      (t/is (some? (:first-seen-at finding))))
+
+    (t/testing "status changes are recorded with from and to"
+      (let [out (th/command! {::th/type :update-audit-result-status
+                              ::rpc/profile-id (:id owner)
+                              :id (:id finding)
+                              :status "fixed"})]
+        (t/is (nil? (:error out)))))
+
+    (t/testing "a finding that is no longer detected is resolved"
+      (th/update-file! :profile-id (:id owner)
+                       :file-id (:id file)
+                       :changes [{:type :mod-obj :page-id page-id :id literal
+                                  :operations [{:type :set
+                                                :attr :applied-tokens
+                                                :val {:fill "color.action.primary"}}]}])
+      (let [out (th/command! {::th/type :run-audit
+                              ::rpc/profile-id (:id owner)
+                              :file-id (:id file)})]
+        (t/is (nil? (:error out)))
+        (t/is (= 0 (get-in out [:result :summary :total])))
+        (t/is (= 1 (get-in out [:result :summary :resolved-since-previous])))))
+
+    (t/testing "the file trail lists every event, most recent first"
+      (let [out    (th/command! {::th/type :get-governance-events
+                                 ::rpc/profile-id (:id member)
+                                 :file-id (:id file)})
+            events (:result out)
+            by-type (group-by :type events)]
+        (t/is (nil? (:error out)))
+        (t/is (= ["finding-resolved" "audit-run" "result-status" "audit-run"]
+                 (mapv :type events)))
+        (let [ev (first (get by-type "result-status"))]
+          (t/is (= "open" (get-in ev [:props :from])))
+          (t/is (= "fixed" (get-in ev [:props :to])))
+          (t/is (= "token/color" (:rule-id ev)))
+          (t/is (= "design-system" (:area ev)))
+          (t/is (= "medium" (:severity ev)))
+          (t/is (= (:id owner) (:profile-id ev))))
+        (let [ev (first (get by-type "finding-resolved"))]
+          (t/is (= (:id finding) (:result-id ev)))
+          (t/is (= "fixed" (get-in ev [:props :previous-status])))
+          (t/is (number? (get-in ev [:props :open-seconds]))))
+        (let [ev (last events)]
+          (t/is (= 1 (get-in ev [:props :total])))
+          (t/is (= {:design-system 1} (get-in ev [:props :by-area]))))))
+
+    (t/testing "events can be filtered by type"
+      (let [out (th/command! {::th/type :get-governance-events
+                              ::rpc/profile-id (:id member)
+                              :file-id (:id file)
+                              :types ["audit-run"]})]
+        (t/is (nil? (:error out)))
+        (t/is (= 2 (count (:result out))))))
+
+    (t/testing "a plain editor cannot read the team trail nor the metrics"
+      (let [out (th/command! {::th/type :get-governance-events
+                              ::rpc/profile-id (:id member)
+                              :team-id team-id})]
+        (t/is (th/ex-of-type? (:error out) :not-found)))
+      (let [out (th/command! {::th/type :get-governance-metrics
+                              ::rpc/profile-id (:id member)
+                              :team-id team-id})]
+        (t/is (th/ex-of-type? (:error out) :not-found))))
+
+    (t/testing "events need a scope"
+      (let [out (th/command! {::th/type :get-governance-events
+                              ::rpc/profile-id (:id owner)})]
+        (t/is (th/ex-of-type? (:error out) :validation))))
+
+    (t/testing "policy updates are recorded"
+      (th/command! {::th/type :update-governance-policy
+                    ::rpc/profile-id (:id owner)
+                    :team-id team-id
+                    :rules {"naming/duplicate" {:enabled? false}}})
+      (let [out (th/command! {::th/type :get-governance-events
+                              ::rpc/profile-id (:id owner)
+                              :team-id team-id
+                              :types ["policy-updated"]})
+            ev  (first (:result out))]
+        (t/is (nil? (:error out)))
+        (t/is (= 1 (count (:result out))))
+        (t/is (= {:naming/duplicate {:enabled? false}}
+                 (get-in ev [:props :rules])))))
+
+    (t/testing "metrics aggregate the evidence by area"
+      (let [out (th/command! {::th/type :get-governance-metrics
+                              ::rpc/profile-id (:id owner)
+                              :team-id team-id})
+            m   (:result out)
+            ds  (get-in m [:by-area "design-system"])]
+        (t/is (nil? (:error out)))
+        (t/is (= 1 (:files-audited m)))
+        (t/is (= 2 (:audits m)))
+        (t/is (= 0 (:open m)))
+        (t/is (= 1 (:resolved m)))
+        (t/is (= 1.0 (:fix-rate m)))
+        (t/is (= 1 (:resolved ds)))
+        (t/is (= 1 (:fixed-in-panel ds)))
+        (t/is (= 0 (:ignored ds)))
+        (t/is (number? (:median-resolve-seconds ds)))
+        (t/is (= #{"design-system" "accessibility" "ui-quality" "layer-semantics" "usability"}
+                 (set (keys (:by-area m)))))
+        (t/is (= 1 (count (:weekly m))))
+        (t/is (= 1 (get-in m [:weekly 0 :resolved])))))))
+
 (t/deftest install-design-system-is-idempotent
   (let [owner   (th/create-profile* 1 {:is-active true})
         member  (th/create-profile* 2 {:is-active true})
@@ -259,13 +383,24 @@
         (t/is (false? (get-in out2 [:result :created])))
         (t/is (= file-id (get-in out2 [:result :file-id])))))
 
-    (t/testing "the imported file audits to the five intentional findings"
+    (t/testing "the imported file audits to its intentional findings, in every area"
       (let [out (th/command! {::th/type :run-audit
                               ::rpc/profile-id (:id owner)
                               :file-id file-id})]
         (t/is (nil? (:error out)))
-        (t/is (= 5 (get-in out [:result :summary :total])))
-        (t/is (= 4 (get-in out [:result :summary :fixable])))))
+        (t/is (= 20 (get-in out [:result :summary :total])))
+        (t/is (= 9 (get-in out [:result :summary :fixable])))
+        (t/is (= {"design-system" 11 "accessibility" 3 "ui-quality" 2
+                  "layer-semantics" 2 "usability" 2}
+                 (get-in out [:result :summary :by-area])))))
+
+    (t/testing "the install is recorded as evidence"
+      (let [out (th/command! {::th/type :get-governance-events
+                              ::rpc/profile-id (:id owner)
+                              :team-id team-id
+                              :types ["design-system-installed"]})]
+        (t/is (nil? (:error out)))
+        (t/is (= [file-id] (mapv :file-id (:result out))))))
 
     (t/testing "a viewer cannot install it"
       (let [out (th/command! {::th/type :install-design-system

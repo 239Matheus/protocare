@@ -90,6 +90,11 @@
       (tho/add-text :text1 "Hello")
       (ths/update-shape-text :text1 :fills [{:fill-color purple :fill-opacity 1}])))
 
+(defn- audit-color
+  "Runs only the color rule, so other rules do not add results here."
+  [ctx & opts]
+  (apply engine/run-audit ctx :rules [token-color/rule] opts))
+
 (defn- results-for
   [audit label]
   (filter #(= (thi/id label) (:node-id %)) (:results audit)))
@@ -114,7 +119,7 @@
 (t/deftest detects-literal-colors
   (let [file  (setup-file)
         ctx   (gctx/build-context file)
-        audit (engine/run-audit ctx)]
+        audit (audit-color ctx)]
 
     (t/testing "literal fill matching a token is fixable"
       (let [[r :as rs] (results-for audit :rect-literal)]
@@ -159,28 +164,28 @@
 (t/deftest library-colors-can-be-forbidden
   (let [file  (setup-file)
         ctx   (gctx/build-context file :options {:allow-library-colors? false})
-        audit (engine/run-audit ctx)]
+        audit (audit-color ctx)]
     (t/is (= 1 (count (results-for audit :rect-library))))))
 
 (t/deftest rules-can-be-configured
   (let [file (setup-file)
         ctx  (gctx/build-context file)]
     (t/testing "severity override"
-      (let [audit (engine/run-audit ctx :config {"token/color" {:severity :critical}})]
+      (let [audit (audit-color ctx :config {"token/color" {:severity :critical}})]
         (t/is (= {:critical 4} (get-in audit [:summary :by-severity])))))
     (t/testing "disabled rule"
-      (let [audit (engine/run-audit ctx :config {"token/color" {:enabled? false}})]
+      (let [audit (audit-color ctx :config {"token/color" {:enabled? false}})]
         (t/is (= 0 (get-in audit [:summary :total])))))))
 
 (t/deftest fix-replaces-literal-by-token
   (let [file    (setup-file)
         ctx     (gctx/build-context file)
-        audit   (engine/run-audit ctx)
+        audit   (audit-color ctx)
         page-id (thf/current-page-id file)
         changes (-> (pcb/empty-changes nil page-id)
                     (fix/generate-fix-changes ctx (:results audit)))
         file'   (thf/apply-changes file changes)
-        audit'  (engine/run-audit (gctx/build-context file'))]
+        audit'  (audit-color (gctx/build-context file'))]
 
     (t/testing "only the unfixable violation remains"
       (t/is (= 1 (get-in audit' [:summary :total])))
@@ -198,7 +203,7 @@
 
     (t/testing "undo restores the original state"
       (let [file''  (thf/apply-undo-changes file' changes)
-            audit'' (engine/run-audit (gctx/build-context file''))]
+            audit'' (audit-color (gctx/build-context file''))]
         (t/is (= 4 (get-in audit'' [:summary :total])))
         (t/is (nil? (get-in (ths/get-shape file'' :rect-literal) [:applied-tokens :fill])))))))
 
@@ -210,9 +215,14 @@
     (t/is (nil? (areas/area-of "unknown"))))
 
   (t/testing "an area is active only when it has rules"
-    (t/is (true? (areas/active? :design-system)))
-    (t/is (false? (areas/active? :accessibility)))
-    (t/is (= ["token/color"] (mapv :id (areas/rules-of :design-system)))))
+    (let [rules [token-color/rule]]
+      (t/is (true? (areas/active? :design-system rules)))
+      (t/is (false? (areas/active? :accessibility rules)))
+      (t/is (= ["token/color"] (mapv :id (areas/rules-of :design-system rules))))))
+
+  (t/testing "every area has rules in the engine"
+    (doseq [{:keys [id]} areas/areas]
+      (t/is (true? (areas/active? id engine/default-rules)) (str id))))
 
   (t/testing "a new rule activates its area without other changes"
     (let [rules [{:id "a11y/contrast" :category "accessibility"}]]

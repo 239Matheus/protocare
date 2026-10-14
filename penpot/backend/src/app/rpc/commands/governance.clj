@@ -20,6 +20,7 @@
    [app.common.time :as ct]
    [app.common.uuid :as uuid]
    [app.db :as db]
+   [app.governance.areas :as areas]
    [app.governance.context :as gctx]
    [app.governance.engine :as engine]
    [app.governance.rule :as rule]
@@ -75,6 +76,45 @@
 
 (def check-health-permissions!
   (perms/make-check-fn can-view-health?))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; EVIDENCE EVENTS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def event-types
+  #{"audit-run" "finding-resolved" "result-status"
+    "policy-updated" "design-system-installed"})
+
+(defn- area-name
+  [category]
+  (some-> category areas/area-of name))
+
+(defn- seconds-between
+  [from to]
+  (when (and from to)
+    (quot (- (inst-ms to) (inst-ms from)) 1000)))
+
+(defn record-event!
+  "Appends one governance evidence event (see docs/03-analytics-plan.md).
+   Runs in the caller transaction, so the event exists only when the
+   change it describes was committed."
+  [conn {:keys [type team-id project-id file-id audit-id result-id
+                profile-id rule-id area severity props]}]
+  (assert (contains? event-types type) type)
+  (db/insert! conn :governance-event
+              {:id (uuid/next)
+               :type type
+               :team-id team-id
+               :project-id project-id
+               :file-id file-id
+               :audit-id audit-id
+               :result-id result-id
+               :profile-id profile-id
+               :rule-id rule-id
+               :area area
+               :severity (some-> severity name)
+               :props (db/json (or props {}))}
+              {::db/return-keys false}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; POLICY
@@ -181,6 +221,17 @@
                   (-> row (dissoc :team-id) (assoc :modified-at (ct/now)))
                   {:team-id team-id})
       (db/insert! conn :governance-policy row))
+    (record-event! conn {:type "policy-updated"
+                         :team-id team-id
+                         :profile-id profile-id
+                         :props {:rules (into (sorted-map)
+                                              (map (fn [[id cfg]]
+                                                     [id (-> (select-keys cfg [:enabled? :severity])
+                                                             (d/update-when :severity name))]))
+                                              rules)
+                                 :options (into (sorted-map)
+                                                (map (fn [[k v]] [(name k) v]))
+                                                options)}})
     (rph/with-meta (get-policy conn team-id)
       {::audit/props {:team-id team-id
                       :rules (vec (keys rules))}})))
@@ -263,9 +314,10 @@
   (when row
     (let [payload (some-> payload db/decode-transit-pgobject)]
       (-> payload
-          (merge (select-keys row [:id :audit-id :status]))
+          (merge (select-keys row [:id :audit-id :status :first-seen-at]))
           (assoc :node-id (:node-id row)
-                 :page-id (:page-id row))))))
+                 :page-id (:page-id row)
+                 :area (or (:area row) (area-name (:category row))))))))
 
 (defn- result-key
   [result]
@@ -295,18 +347,31 @@
   (let [ids (bfc/get-libraries cfg [file-id])]
     (into {} (map (fn [id] [id (bfc/get-file cfg id :realize? true)])) ids)))
 
+(defn- page-scoped
+  "Keeps the previous results the new audit can tell about: a page audit
+   says nothing about the other pages."
+  [results page-id]
+  (if page-id
+    (filterv #(= page-id (:page-id %)) results)
+    results))
+
 (defn- persist-audit!
   [conn {:keys [file project-id team-id profile-id page-id audit previous]}]
-  (let [prev-results  (if previous (get-audit-results conn (:id previous)) [])
+  (let [now           (ct/now)
+        prev-results  (if previous (get-audit-results conn (:id previous)) [])
         prev-status   (into {} (map (juxt result-key :status)) prev-results)
+        prev-seen     (into {} (map (juxt result-key #(or (:first-seen-at %) (:created-at previous))))
+                            prev-results)
+        results       (:results audit)
+        current-keys  (into #{} (map result-key) results)
         ;; A previous finding counts as resolved when it is no longer
         ;; detected, whether the user fixed it through the panel (status
         ;; "fixed") or by hand (still "open"). Ignored findings are not
-        ;; resolutions.
-        prev-active   (into #{} (comp (remove #(= "ignored" (:status %))) (map result-key)) prev-results)
-        results       (:results audit)
-        current-keys  (into #{} (map result-key) results)
-        resolved      (count (remove current-keys prev-active))
+        ;; resolutions, and a page audit only resolves findings of its page.
+        resolved-res  (->> (page-scoped prev-results page-id)
+                           (remove #(= "ignored" (:status %)))
+                           (remove (comp current-keys result-key)))
+        resolved      (count resolved-res)
         summary       (assoc (:summary audit)
                              :resolved-since-previous resolved
                              :previous-audit-id (:id previous))
@@ -330,6 +395,8 @@
                                  :audit-id audit-id
                                  :rule-id (:rule-id result)
                                  :category (:category result)
+                                 :area (area-name (:category result))
+                                 :first-seen-at (get prev-seen (result-key result) now)
                                  :severity (name (:severity result))
                                  :page-id (:page-id result)
                                  :node-id (:node-id result)
@@ -340,6 +407,42 @@
                                  :payload (db/tjson result)}))
                             results)]
     (run! #(db/insert! conn :governance-audit-result %) rows)
+
+    ;; Evidence: one event for the run and one per finding that is no
+    ;; longer detected (fixed through the panel or by hand), with how
+    ;; long it stayed open.
+    (record-event! conn {:type "audit-run"
+                         :team-id team-id
+                         :project-id project-id
+                         :file-id (:id file)
+                         :audit-id audit-id
+                         :profile-id profile-id
+                         :props {:engine-version engine/version
+                                 :page-id (some-> page-id str)
+                                 :total (:total summary 0)
+                                 :fixable (:fixable summary 0)
+                                 :resolved-since-previous resolved
+                                 :token-adherence (:token-adherence summary)
+                                 :by-area (:by-area summary {})
+                                 :by-severity (update-keys (:by-severity summary {}) name)}})
+    (doseq [prev resolved-res]
+      (record-event! conn {:type "finding-resolved"
+                           :team-id team-id
+                           :project-id project-id
+                           :file-id (:id file)
+                           :audit-id audit-id
+                           :result-id (:id prev)
+                           :profile-id profile-id
+                           :rule-id (:rule-id prev)
+                           :area (or (:area prev) (area-name (:category prev)))
+                           :severity (:severity prev)
+                           :props {:node-id (str (:node-id prev))
+                                   :previous-status (:status prev)
+                                   :fix-available (boolean (:fix-available prev))
+                                   :open-seconds (seconds-between
+                                                  (or (:first-seen-at prev) (:created-at previous))
+                                                  now)}}))
+
     (-> (decode-audit-row row)
         (assoc :results (get-audit-results conn audit-id)))))
 
@@ -430,6 +533,23 @@
         audit  (db/get conn :governance-audit {:id (:audit-id result)})]
     (files/check-edition-permissions! conn profile-id (:file-id audit))
     (db/update! conn :governance-audit-result {:status status} {:id id})
+    (when (not= status (:status result))
+      (record-event! conn {:type "result-status"
+                           :team-id (:team-id audit)
+                           :project-id (:project-id audit)
+                           :file-id (:file-id audit)
+                           :audit-id (:id audit)
+                           :result-id id
+                           :profile-id profile-id
+                           :rule-id (:rule-id result)
+                           :area (or (:area result) (area-name (:category result)))
+                           :severity (:severity result)
+                           :props {:from (:status result)
+                                   :to status
+                                   :fix-available (boolean (:fix-available result))
+                                   :open-seconds (seconds-between
+                                                  (or (:first-seen-at result) (:created-at audit))
+                                                  (ct/now))}}))
     (decode-result-row (db/get conn :governance-audit-result {:id id}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -552,6 +672,186 @@
                :recent (recent-audits conn "team_id" team-id 30)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; EVIDENCE (events and metrics, see docs/03-analytics-plan.md)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def ^:private default-period-days 90)
+
+(defn- since-or-default
+  [since]
+  (or since (ct/minus (ct/now) {:days default-period-days})))
+
+(defn- check-project-in-team!
+  [conn project-id team-id]
+  (when (and project-id (not= team-id (perms/get-team-id-for-project conn project-id)))
+    (ex/raise :type :not-found :code :object-not-found :hint "not found")))
+
+(def ^:private sql:events
+  "SELECT id, created_at, type, team_id, project_id, file_id, audit_id,
+          result_id, profile_id, rule_id, area, severity, props
+     FROM governance_event
+    WHERE team_id = ?
+      AND created_at >= ?
+      AND (?::uuid IS NULL OR project_id = ?)
+      AND (?::uuid IS NULL OR file_id = ?)
+      AND (?::text[] IS NULL OR type = ANY(?::text[]))
+    ORDER BY created_at DESC
+    LIMIT ?")
+
+(def ^:private schema:get-governance-events
+  [:map {:title "get-governance-events"}
+   [:team-id {:optional true} ::sm/uuid]
+   [:project-id {:optional true} ::sm/uuid]
+   [:file-id {:optional true} ::sm/uuid]
+   [:types {:optional true} [:vector [::sm/one-of {:format "string"} event-types]]]
+   [:since {:optional true} ct/schema:inst]
+   [:limit {:optional true} [::sm/int {:min 1 :max 500}]]])
+
+(sv/defmethod ::get-governance-events
+  "Evidence trail of governance (most recent first): audits run, findings
+   resolved, status changes, policy updates and design system installs.
+   For a file, anyone who can read it; for a team or project, team
+   owners/admins, `design-ops` and `ds-admin` roles."
+  {::doc/added "2.17"
+   ::doc/module :governance
+   ::sm/params schema:get-governance-events
+   ::db/transaction true}
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id project-id file-id types since limit]
+                        :or {limit 100}}]
+  (let [team-id (cond
+                  file-id
+                  (do (files/check-read-permissions! conn profile-id file-id)
+                      (:team-id (db/exec-one! conn ["SELECT p.team_id FROM file AS f
+                                                      JOIN project AS p ON (p.id = f.project_id)
+                                                     WHERE f.id = ?" file-id])))
+
+                  team-id
+                  (do (check-health-permissions! conn profile-id team-id)
+                      (check-project-in-team! conn project-id team-id)
+                      team-id)
+
+                  :else
+                  (ex/raise :type :validation
+                            :code :missing-scope
+                            :hint "team-id or file-id is required"))
+        types   (when (seq types) (db/create-array conn "text" types))]
+    (->> (db/exec! conn [sql:events team-id (since-or-default since)
+                         project-id project-id file-id file-id types types limit])
+         (mapv #(update % :props db/decode-json-pgobject)))))
+
+(def ^:private sql:resolution-by-area
+  "SELECT area, type, props->>'to' AS to_status, count(*) AS total,
+          percentile_cont(0.5) WITHIN GROUP
+            (ORDER BY (props->>'open-seconds')::numeric) AS median_open_seconds
+     FROM governance_event
+    WHERE team_id = ?
+      AND created_at >= ?
+      AND (?::uuid IS NULL OR project_id = ?)
+      AND type IN ('finding-resolved', 'result-status')
+    GROUP BY area, type, props->>'to'")
+
+(def ^:private sql:weekly
+  "SELECT date_trunc('week', created_at) AS week,
+          count(*) FILTER (WHERE type = 'audit-run') AS audits,
+          count(DISTINCT file_id) FILTER (WHERE type = 'audit-run') AS files,
+          coalesce(sum((props->>'total')::int) FILTER (WHERE type = 'audit-run'), 0) AS findings,
+          count(*) FILTER (WHERE type = 'finding-resolved') AS resolved
+     FROM governance_event
+    WHERE team_id = ?
+      AND created_at >= ?
+      AND (?::uuid IS NULL OR project_id = ?)
+    GROUP BY 1
+    ORDER BY 1")
+
+(def ^:private sql:latest-audit-ids
+  "SELECT DISTINCT ON (a.file_id) a.id
+     FROM governance_audit AS a
+     JOIN file AS f ON (f.id = a.file_id)
+    WHERE a.team_id = ?
+      AND (?::uuid IS NULL OR a.project_id = ?)
+      AND f.deleted_at IS NULL
+    ORDER BY a.file_id, a.created_at DESC")
+
+(def ^:private sql:open-by-category
+  "SELECT category, count(*) AS total
+     FROM governance_audit_result
+    WHERE audit_id = ANY(?)
+      AND status = 'open'
+    GROUP BY category")
+
+(defn- ratio
+  [n d]
+  (when (pos? d) (double (/ n d))))
+
+(defn- area-metrics
+  [resolution open-by-area]
+  (let [area-ids (into (sorted-set)
+                       (concat (map (comp name :id) areas/areas)
+                               (keep :area resolution)))]
+    (into {}
+          (map (fn [area]
+                 (let [rows     (filter #(= area (:area %)) resolution)
+                       resolved (some #(when (= "finding-resolved" (:type %)) %) rows)
+                       status   (fn [to] (or (some #(when (and (= "result-status" (:type %))
+                                                               (= to (:to-status %)))
+                                                      (:total %))
+                                                   rows)
+                                             0))
+                       n-res    (or (:total resolved) 0)
+                       n-open   (get open-by-area area 0)]
+                   [area {:open n-open
+                          :resolved n-res
+                          :fixed-in-panel (status "fixed")
+                          :ignored (status "ignored")
+                          :reopened (status "open")
+                          :fix-rate (ratio n-res (+ n-res n-open))
+                          :median-resolve-seconds (some-> (:median-open-seconds resolved) double)}])))
+          area-ids)))
+
+(def ^:private schema:get-governance-metrics
+  [:map {:title "get-governance-metrics"}
+   [:team-id ::sm/uuid]
+   [:project-id {:optional true} ::sm/uuid]
+   [:since {:optional true} ct/schema:inst]])
+
+(sv/defmethod ::get-governance-metrics
+  "Evidence metrics of a team (or one of its projects) over a period
+   (default 90 days): per area, open findings, findings resolved, fix
+   rate and median time to resolve; per week, audits, findings and
+   resolutions. Aggregated only: no per-person numbers. Team
+   owners/admins, `design-ops` and `ds-admin` roles."
+  {::doc/added "2.17"
+   ::doc/module :governance
+   ::sm/params schema:get-governance-metrics
+   ::db/transaction true}
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id project-id since]}]
+  (check-health-permissions! conn profile-id team-id)
+  (check-project-in-team! conn project-id team-id)
+  (let [since      (since-or-default since)
+        resolution (db/exec! conn [sql:resolution-by-area team-id since project-id project-id])
+        audit-ids  (mapv :id (db/exec! conn [sql:latest-audit-ids team-id project-id project-id]))
+        open       (if (seq audit-ids)
+                     (db/exec! conn [sql:open-by-category (db/create-array conn "uuid" audit-ids)])
+                     [])
+        open-area  (reduce (fn [acc {:keys [category total]}]
+                             (update acc (or (area-name category) "other") (fnil + 0) total))
+                           {} open)
+        weekly     (db/exec! conn [sql:weekly team-id since project-id project-id])
+        by-area    (area-metrics resolution open-area)
+        n-open     (reduce + 0 (map :open (vals by-area)))
+        n-res      (reduce + 0 (map :resolved (vals by-area)))]
+    {:team-id team-id
+     :project-id project-id
+     :since since
+     :files-audited (count audit-ids)
+     :audits (reduce + 0 (map :audits weekly))
+     :open n-open
+     :resolved n-res
+     :fix-rate (ratio n-res (+ n-res n-open))
+     :by-area by-area
+     :weekly (mapv #(select-keys % [:week :audits :files :findings :resolved]) weekly)}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; BUNDLED DESIGN SYSTEM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -625,5 +925,11 @@
           file-ids   (if (map? result) (:file-ids result) result)
           file-id    (first file-ids)]
       (mark-shared! pool file-id)
+      (record-event! pool {:type "design-system-installed"
+                           :team-id team-id
+                           :project-id project-id
+                           :file-id file-id
+                           :profile-id profile-id
+                           :props {:name design-system-name}})
       (rph/with-meta {:file-id file-id :created true}
         {::audit/props {:team-id team-id :file-id file-id}}))))

@@ -111,7 +111,9 @@
        rule page-id shape
        {:attribute attribute
         :message (str "The " attr-label " color " raw " is applied as a literal value.")
+        :message-args [raw]
         :recommendation (str "Replace the literal value by the token " expected ".")
+        :recommendation-args [expected]
         :current-value raw
         :expected-value expected
         :candidates candidates
@@ -124,6 +126,7 @@
        rule page-id shape
        {:attribute attribute
         :message (str "The " attr-label " color " raw " does not exist in the design system.")
+        :message-args [raw]
         :recommendation "Use an existing color token or ask the design system team to add one."
         :current-value raw
         :fix-available false}))))

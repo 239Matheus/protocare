@@ -101,7 +101,7 @@ Plano original:
 - Modo `:audit` (novo em `valid-options-mode`) mostra o painel de auditoria. A sidebar renderiza só o modo ativo.
 - Taxonomia de áreas em `app.governance.areas` (common): Design System, Acessibilidade, Qualidade da interface (heurísticas/Gestalt), Semântica das camadas, Teste de usabilidade. Uma regra entra numa área pela sua `category`; áreas sem regras aparecem como "Em breve".
 - Removido o botão de governança do header e a flag de layout `:governance` (o modo substitui).
-- Pendente: mensagens das regras vêm do engine em inglês; localizar no frontend por `rule-id` + parâmetros.
+- Mensagens das regras localizadas no frontend (Fase 4.3).
 
 ## Fase 4.2 — Design system embutido (2026-10-14)
 
@@ -114,14 +114,30 @@ Plano original:
   - Engine: arquivo sem `tokens-status` usa os temas marcados na lib (como a migração do Penpot).
   - Regra `token/color`: candidatos ordenados de forma determinística (semântico antes de paleta; papel `text`/`border`/`bg|action|feedback` conforme o atributo). Ex.: texto branco sugere `color.text.inverse`, não `color.bg.surface`.
 
+## Fase 4.3 — Regras das cinco áreas e evidências (2026-10-14)
+
+- Engine `0.2.0`, 14 regras (`app.governance.rules.*`), todas com testes em `common_tests.governance.rules-test`:
+  - Design system: `token/spacing` (padding e gap de layouts), `token/radius`, `token/typography`; correção `:apply-tokens` quando existe token com o mesmo valor.
+  - Acessibilidade: `accessibility/contrast` (WCAG AA, texto grande 3:1; fundo = irmão opaco abaixo, fill do pai ou fundo da página), `accessibility/text-size` (mínimo 12px), `accessibility/touch-target` (24x24 em elementos com interação ou componentes de controle).
+  - Qualidade da interface: `layout/alignment` e `layout/spacing` reportam só o elemento fora do padrão (quase alinhado, ou espaço quase igual ao do resto da coluna). A primeira versão comparava os espaços com a escala de tokens e gerava 81 falsos positivos no DS, porque caixas de texto têm altura de line-height.
+  - Semântica das camadas: `naming/default-name` (EN e PT), `naming/duplicate`.
+  - Teste de usabilidade: `usability/broken-link`, `usability/flow`, `usability/dead-end`.
+- Contexto do engine: índices de tokens numéricos (espaçamento, raio) e de tipografia; opções `min-font-size`, `min-touch-target`, `alignment-tolerance`, `max-rhythm-gap`.
+- Resultados trazem `message-args` e `recommendation-args`; o frontend traduz por `rule-id` (`governance_texts.cljs`), com o texto do engine como fallback.
+- Proto Care DS regenerado: páginas sem ruído e Tela de teste com 20 erros intencionais nas cinco áreas (9 corrigíveis), mais a tela "Recuperar senha".
+- Evidências (backend): migração `0158` (`governance_event`, `area` e `first_seen_at` nos achados), eventos em `run-audit`, `update-audit-result-status`, `update-governance-policy` e `install-design-system`, RPCs `get-governance-events` e `get-governance-metrics`. Plano em `docs/03-analytics-plan.md`.
+
 ## Fase 5 — Dashboard do gestor
 
 - Rota no dashboard: Overview (projetos auditados, auditorias recentes, violações abertas/críticas, aderência, acessibilidade), Trends, Projects, Categories.
 - Sem ranking de pessoas.
+- Dados prontos: `get-team-health`, `get-project-health` e `get-governance-metrics`. Detalhes das visões em `docs/03-analytics-plan.md`, seção 4.
 
 ## Fase 6 — Mais regras
 
-Ordem sugerida: `token/spacing` → `token/radius` → `token/typography` → `accessibility/contrast` → `accessibility/text-size` → `component/official` → `component/property`.
+Feitas na Fase 4.3: `token/spacing`, `token/radius`, `token/typography`, `accessibility/*`, `layout/*`, `naming/*`, `usability/*`.
+
+Próximas: `component/official` (instância de componente da biblioteca oficial em vez de cópia desenhada à mão), `component/property` (overrides fora do permitido), `accessibility/focus-order`, heurísticas de consistência entre telas (mesmo elemento com estilos diferentes).
 
 ---
 

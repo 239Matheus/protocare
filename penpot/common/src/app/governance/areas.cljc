@@ -7,9 +7,11 @@
 (ns app.governance.areas
   "Audit areas shown in the Audit mode. An area groups rule categories;
    a rule joins an area just by declaring one of its categories, so the
-   UI and the health reports need no change when rules are added."
-  (:require
-   [app.governance.engine :as engine]))
+   UI and the health reports need no change when rules are added.
+
+   This namespace has no dependency on the engine (the engine uses it to
+   summarize results by area); functions that need the rule list take it
+   as an argument.")
 
 (def areas
   [{:id :design-system
@@ -19,7 +21,7 @@
    {:id :ui-quality
     :categories #{"layout" "heuristic" "gestalt"}}
    {:id :layer-semantics
-    :categories #{"structure" "naming"}}
+    :categories #{"naming" "structure"}}
    {:id :usability
     :categories #{"usability"}}])
 
@@ -34,13 +36,12 @@
         areas))
 
 (defn rules-of
-  "Rules of `rules` (default: the engine rules) that belong to `area-id`."
-  ([area-id] (rules-of area-id engine/default-rules))
-  ([area-id rules]
-   (let [categories (get-in area-by-id [area-id :categories] #{})]
-     (filterv #(contains? categories (:category %)) rules))))
+  "Rules of `rules` that belong to `area-id`."
+  [area-id rules]
+  (let [categories (get-in area-by-id [area-id :categories] #{})]
+    (filterv #(contains? categories (:category %)) rules)))
 
 (defn active?
-  "True when the area has at least one rule."
-  ([area-id] (active? area-id engine/default-rules))
-  ([area-id rules] (boolean (seq (rules-of area-id rules)))))
+  "True when the area has at least one rule in `rules`."
+  [area-id rules]
+  (boolean (seq (rules-of area-id rules))))

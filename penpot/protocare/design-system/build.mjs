@@ -271,6 +271,7 @@ function inputSpec() {
         height: "size.control-md",
         ...radiusTokens("radius.md"),
         ...paddingTokens("space.2", "space.3"),
+        columnGap: "space.2",
       },
     },
     [
@@ -303,7 +304,12 @@ function badgeSpec(kind, label) {
       fills: solid(hex(bg)),
       ...radius(num("radius.full")),
       ...flexRow({ padV: "space.1", padH: "space.3" }),
-      appliedTokens: { fill: bg, ...radiusTokens("radius.full"), ...paddingTokens("space.1", "space.3") },
+      appliedTokens: {
+        fill: bg,
+        ...radiusTokens("radius.full"),
+        ...paddingTokens("space.1", "space.3"),
+        columnGap: "space.2",
+      },
     },
     [
       tokenText("Label", label, {
@@ -427,7 +433,7 @@ function pageReadme(ctx) {
   const inner = W - 2 * x;
   let y = 48;
   const children = [];
-  const push = (node, height, gap = 12) => {
+  const push = (node, height, gap = 16) => {
     children.push(node);
     y += height + gap;
   };
@@ -447,12 +453,12 @@ function pageReadme(ctx) {
   );
 
   const section = (title, lines) => {
-    push(tokenText(title, title, { x, y, width: inner, color: "color.text.primary", typo: "typography.heading.md" }), lh("typography.heading.md"), 12);
+    push(tokenText(title, title, { x, y, width: inner, color: "color.text.primary", typo: "typography.heading.md" }), lh("typography.heading.md"), 16);
     lines.forEach((line, i) =>
       push(
         tokenText(`${title} ${i + 1}`, line, { x, y, width: inner, color: "color.text.secondary", typo: "typography.body.md" }),
         lh("typography.body.md"),
-        i === lines.length - 1 ? 32 : 6,
+        i === lines.length - 1 ? 32 : 8,
       ),
     );
   };
@@ -461,13 +467,14 @@ function pageReadme(ctx) {
     "• Tokens (aba TOKENS): primitivos, tipografia e cores semânticas, com os temas Mode/Light e Mode/Dark.",
     "• Foundations: cores, espaçamento, raio e tipografia.",
     "• Components: Button, Input, Badge e Card, todos usando tokens.",
-    "• Tela de teste: uma tela de login com erros intencionais para a auditoria encontrar.",
+    "• Tela de teste: uma tela de login com erros intencionais nas cinco áreas da auditoria.",
   ]);
   section("Como testar", [
     "1. Abra a página Tela de teste.",
     "2. Na barra flutuante, clique em Auditoria e depois em Executar auditoria.",
-    "3. Use Ir para o elemento e Corrigir nos problemas encontrados.",
-    "4. Para usar o DS em outros arquivos, publique este arquivo como biblioteca compartilhada.",
+    "3. Filtre por área (design system, acessibilidade, qualidade, semântica, usabilidade).",
+    "4. Use Ir para o elemento e Corrigir nos problemas encontrados, e audite de novo.",
+    "5. Para usar o DS em outros arquivos, publique este arquivo como biblioteca compartilhada.",
   ]);
 
   draw(
@@ -583,16 +590,16 @@ function pageFoundations(ctx) {
     let y = 104;
     typos.forEach((name) => {
       const t = typography(name);
-      const h = Math.ceil(t.size * Number(t.lineHeight));
+      const h = Math.max(Math.ceil(t.size * Number(t.lineHeight)), 24);
       children.push(
         tokenText(`Nome ${name}`, `${name} · ${t.size}/${t.lineHeight} · ${t.weight}`, {
-          x: 32, y, width: 320, color: "color.text.secondary", typo: "typography.caption",
+          x: 32, y, width: 320, height: h, color: "color.text.secondary", typo: "typography.caption", vAlign: "center",
         }),
         tokenText(`Amostra ${name}`, "A governança faz parte do design", {
-          x: 360, y, width: 700, height: h, color: "color.text.primary", typo: name,
+          x: 360, y, width: 700, height: h, color: "color.text.primary", typo: name, vAlign: "center",
         }),
       );
-      y += Math.max(h, 24) + 20;
+      y += h + 24;
     });
     sectionBoard("Tipografia", 0, 1200, 1100, y + 12, children);
   }
@@ -622,6 +629,21 @@ function pageTestScreen(ctx, mains) {
   const H = 844;
   const x = 24;
   const inner = W - 2 * x;
+  const lh = (typo) => {
+    const t = typography(typo);
+    return Math.ceil(t.size * Number(t.lineHeight));
+  };
+  const recoverId = ctx.genId();
+  const add = (node) => draw(ctx, node);
+
+  // Vertical cursor: every gap is on the spacing scale except the one
+  // that is wrong on purpose (see the note).
+  let y = 96;
+  const next = (height, gap) => {
+    const top = y;
+    y += height + gap;
+    return top;
+  };
 
   ctx.addBoard({
     name: "Login — mobile",
@@ -634,81 +656,163 @@ function pageTestScreen(ctx, mains) {
     appliedTokens: { fill: "color.bg.canvas" },
   });
 
-  const add = (node) => draw(ctx, node);
+  // Layer semantics: a top bar that keeps the default layer name
+  add(rect("Rectangle", {
+    x: 0, y: 0, width: W, height: 56,
+    fills: solid(hex("color.bg.surface")),
+    appliedTokens: { fill: "color.bg.surface" },
+  }));
 
   // Correct usage: tokens and component instances
-  add(tokenText("Título", "Entrar", { x, y: 96, width: inner, color: "color.text.primary", typo: "typography.heading.lg" }));
-  add(tokenText("Subtítulo", "Acesse sua conta Proto Care", { x, y: 144, width: inner, color: "color.text.secondary", typo: "typography.body.md" }));
-  add(tokenText("Rótulo e-mail", "E-mail", { x, y: 200, width: inner, color: "color.text.primary", typo: "typography.label.md" }));
-  addInstance(ctx, mains.input, { x, y: 222, overrides: { Placeholder: { content: textContent("seu@email.com", { color: hex("color.text.secondary"), ...typography("typography.body.md"), vAlign: "center" }), touched: ["text-content-group", "geometry-group"] } } });
-  add(tokenText("Rótulo senha", "Senha", { x, y: 278, width: inner, color: "color.text.primary", typo: "typography.label.md" }));
-  addInstance(ctx, mains.input, { x, y: 300, overrides: { Placeholder: { content: textContent("••••••••", { color: hex("color.text.secondary"), ...typography("typography.body.md"), vAlign: "center" }), touched: ["text-content-group", "geometry-group"] } } });
+  add(tokenText("Título", "Entrar", { x, y: next(lh("typography.heading.lg"), 8), width: inner, color: "color.text.primary", typo: "typography.heading.lg" }));
+  add(tokenText("Subtítulo", "Acesse sua conta Proto Care", { x, y: next(lh("typography.body.md"), 32), width: inner, color: "color.text.secondary", typo: "typography.body.md" }));
+  add(tokenText("Rótulo e-mail", "E-mail", { x, y: next(lh("typography.label.md"), 8), width: inner, color: "color.text.primary", typo: "typography.label.md" }));
+  const inputH = num("size.control-md");
+  const placeholder = (text) => ({
+    Placeholder: {
+      content: textContent(text, { color: hex("color.text.secondary"), ...typography("typography.body.md"), vAlign: "center" }),
+      touched: ["text-content-group", "geometry-group"],
+    },
+  });
+  // Layer semantics: both fields keep the component name "Input / Default"
+  addInstance(ctx, mains.input, { x, y: next(inputH, 16), overrides: placeholder("seu@email.com") });
 
-  // Violation 1: link with a literal color that matches color.text.link
-  add(literalText("Link esqueci minha senha", "Esqueci minha senha", { x, y: 352, width: 200, color: "#6d28d9", size: 14 }));
+  // UI quality: label 2px off the left edge of the column, and a 6px gap
+  // to its field where the e-mail field uses 8px
+  add(tokenText("Rótulo senha", "Senha", { x: x + 2, y: next(lh("typography.label.md"), 6), width: inner, color: "color.text.primary", typo: "typography.label.md" }));
+  addInstance(ctx, mains.input, { x, y: next(inputH, 16), overrides: placeholder("••••••••") });
+
+  // Design system + accessibility + usability: literal link color and text
+  // style, a 21px high tap target, and a navigation to a screen with no
+  // way out, on a page without a prototype flow
+  const linkH = Math.ceil(14 * 1.5);
+  const link = literalText("Link esqueci minha senha", "Esqueci minha senha", { x, y: next(linkH, 24), width: 200, color: "#6d28d9", size: 14 });
+  link.props.interactions = [
+    { eventType: "click", actionType: "navigate", destination: recoverId, preserveScroll: false },
+  ];
+  add(link);
 
   addInstance(ctx, mains.buttonPrimary, {
     x,
-    y: 400,
+    y: next(inputH, 24),
     overrides: {
       "Button / Primary": { width: inner, touched: ["geometry-group"] },
       Label: { width: inner - 2 * num("space.4"), touched: ["geometry-group"] },
     },
   });
 
-  // Violation 2: divider with a literal color that matches color.border.default
-  add(rect("Divisor", { x, y: 464, width: inner, height: 1, fills: solid("#e5e7eb") }));
+  // Design system: divider with a literal color (token color.border.default)
+  add(rect("Divisor", { x, y: next(1, 24), width: inner, height: 1, fills: solid("#e5e7eb") }));
 
-  // Violations 3 and 4: button drawn by hand instead of the component
+  // Design system: button drawn by hand (literal color, radius and text)
+  const handY = next(40, 24);
   add(
     board("Botão criar conta (desenhado à mão)", {
-      x, y: 489, width: inner, height: 40,
+      x, y: handY, width: inner, height: 40,
       fills: solid("#7c3aed"),
       ...radius(8),
     }, [
       literalText("Texto criar conta", "Criar conta", {
-        x: x + 16, y: 489 + 8, width: inner - 32, height: 24, color: "#ffffff", size: 14, weight: "600", lineHeight: "1.2", align: "center",
+        x: x + 16, y: handY + 8, width: inner - 32, height: 24, color: "#ffffff", size: 14, weight: "600", lineHeight: "1.2", align: "center",
       }),
     ]),
   );
 
-  // Violation 5: a color that does not exist in the design system
-  add(literalText("Termos de uso", "Ao continuar, você aceita os Termos de uso.", { x, y: 780, width: inner, color: "#333333", size: 14, align: "center" }));
+  // Design system: a color that does not exist in the design system
+  const termsY = H - 72;
+  const termsH = Math.ceil(14 * 1.5);
+  add(literalText("Termos de uso", "Ao continuar, você aceita os Termos de uso.", { x, y: termsY, width: inner, color: "#333333", size: 14, align: "center" }));
+
+  // Accessibility: low contrast and a 10px text (literal color and style)
+  add(literalText("Versão", "Proto Care DS · versão 0.2", { x, y: termsY + termsH + 8, width: inner, color: "#9ca3af", size: 10, align: "center" }));
 
   ctx.closeBoard();
 
+  // Usability: the screen the link opens, with no way to leave it
+  {
+    let ry = 96;
+    const children = [
+      tokenText("Título recuperar", "Recuperar senha", { x, y: ry, width: inner, color: "color.text.primary", typo: "typography.heading.lg" }),
+    ];
+    ry += lh("typography.heading.lg") + 8;
+    children.push(
+      tokenText("Instrução recuperar", "Enviamos um link para o seu e-mail.", { x, y: ry, width: inner, color: "color.text.secondary", typo: "typography.body.md" }),
+    );
+    draw(
+      ctx,
+      board("Recuperar senha — mobile", {
+        id: recoverId,
+        x: 0, y: 0, width: W, height: H,
+        fills: solid(hex("color.bg.canvas")),
+        appliedTokens: { fill: "color.bg.canvas" },
+      }, children),
+      { dx: 440, dy: 0 },
+    );
+  }
+
   // Note explaining the intentional errors (tokenized, so it adds no noise)
-  const noteLines = [
-    "1. Link com a cor literal #6D28D9 (token: color.text.link)",
-    "2. Divisor com a cor literal #E5E7EB (token: color.border.default)",
-    "3. Botão desenhado à mão com #7C3AED (token: color.action.primary)",
-    "4. Texto do botão com #FFFFFF (token: color.text.inverse)",
-    "5. Texto com #333333, uma cor fora do design system",
+  const areas = [
+    ["Design system", [
+      "Link: cor #6D28D9 e texto 14px literais (color.text.link, typography.body.sm)",
+      "Divisor: cor literal #E5E7EB (color.border.default)",
+      "Botão desenhado à mão: cor #7C3AED, raio 8 e texto literais",
+      "Termos de uso: #333333, uma cor fora do design system",
+      "Versão: cor #9CA3AF e texto 10px literais",
+    ]],
+    ["Acessibilidade", [
+      "Versão: contraste de 2,4:1 (mínimo 4,5:1) e texto de 10px (mínimo 12px)",
+      "Link: área de toque com 21px de altura (mínimo 24px)",
+    ]],
+    ["Qualidade da interface", [
+      "Rótulo senha 2px fora do alinhamento da coluna",
+      "Espaço de 6px até o campo senha (no e-mail é 8px)",
+    ]],
+    ["Semântica das camadas", [
+      "Barra do topo com o nome padrão \"Rectangle\"",
+      "Dois campos com o mesmo nome \"Input / Default\"",
+    ]],
+    ["Teste de usabilidade", [
+      "O link abre Recuperar senha, mas a página não tem fluxo",
+      "Recuperar senha não tem saída",
+    ]],
   ];
-  const noteW = 480;
-  const lineH = Math.ceil(14 * 1.5);
+  const noteW = 600;
+  const itemH = lh("typography.body.sm");
+  const headH = lh("typography.label.md");
+  let ny = 24;
   const children = [
     tokenText("Título da nota", "Erros intencionais para a auditoria", {
-      x: 24, y: 24, width: noteW - 48, color: "color.feedback.warning.fg", typo: "typography.label.md",
+      x: 24, y: ny, width: noteW - 48, color: "color.feedback.warning.fg", typo: "typography.heading.md",
     }),
-    ...noteLines.map((line, i) =>
-      tokenText(`Erro ${i + 1}`, line, {
-        x: 24, y: 56 + i * (lineH + 4), width: noteW - 48, color: "color.feedback.warning.fg", typo: "typography.body.sm",
-      }),
-    ),
   ];
+  ny += lh("typography.heading.md") + 16;
+  let n = 0;
+  areas.forEach(([area, items], a) => {
+    if (a > 0) ny += 12 - 4;
+    children.push(tokenText(`Área ${area}`, area, {
+      x: 24, y: ny, width: noteW - 48, color: "color.feedback.warning.fg", typo: "typography.label.md",
+    }));
+    ny += headH + 4;
+    items.forEach((item) => {
+      n += 1;
+      children.push(tokenText(`Erro ${n}`, `• ${item}`, {
+        x: 24, y: ny, width: noteW - 48, color: "color.feedback.warning.fg", typo: "typography.body.sm",
+      }));
+      ny += itemH + 4;
+    });
+  });
   draw(
     ctx,
     board("Nota — erros intencionais", {
       x: 0,
       y: 0,
       width: noteW,
-      height: 56 + noteLines.length * (lineH + 4) + 20,
+      height: ny - 4 + 24,
       fills: solid(hex("color.feedback.warning.bg")),
       ...radius(num("radius.lg")),
       appliedTokens: { fill: "color.feedback.warning.bg", ...radiusTokens("radius.lg") },
     }, children),
-    { dx: 440, dy: 0 },
+    { dx: 880, dy: 0 },
   );
 
   ctx.closePage();
