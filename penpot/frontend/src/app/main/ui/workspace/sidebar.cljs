@@ -179,7 +179,10 @@
         section        (cond
                          (or mode-inspect? (contains? layout :layers)) :layers
                          (contains? layout :assets) :assets
-                         (contains? layout :tokens) :tokens)
+                         (contains? layout :tokens) :tokens
+                         ;; e.g. the version history layout drops :layers;
+                         ;; without a section, `(name section)` throws
+                         :else :layers)
 
         {on-pointer-down :on-pointer-down
          on-lost-pointer-capture :on-lost-pointer-capture

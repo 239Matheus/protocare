@@ -2171,15 +2171,15 @@ msgstr "Excluir conversa"
 
 #: src/app/main/ui/dashboard/file_menu.cljs:155
 msgid "modals.delete-file-confirm.accept"
-msgstr "Excluir arquivo"
+msgstr "Mover para a lixeira"
 
 #: src/app/main/ui/dashboard/file_menu.cljs:154
 msgid "modals.delete-file-confirm.message"
-msgstr "Tem certeza que deseja excluir este arquivo?"
+msgstr "O arquivo vai para a Lixeira, onde você pode restaurá-lo depois."
 
 #: src/app/main/ui/dashboard/file_menu.cljs:153
 msgid "modals.delete-file-confirm.title"
-msgstr "Excluindo arquivo"
+msgstr "Mover para a lixeira"
 
 #: src/app/main/ui/dashboard/file_menu.cljs:149
 msgid "modals.delete-file-multi-confirm.accept"
@@ -5346,6 +5346,34 @@ msgstr "Valor literal, sem token aplicado"
 #: src/app/main/ui/dashboard/health.cljs
 msgid "title.dashboard.health"
 msgstr "Saúde do design - %s - Penpot"
+
+#: src/app/main/ui/dashboard/file_menu.cljs
+msgid "dashboard.file-menu.open"
+msgstr "Abrir"
+
+#: src/app/main/ui/dashboard/file_menu.cljs
+msgid "dashboard.file-menu.copy-link"
+msgstr "Copiar link"
+
+#: src/app/main/ui/dashboard/file_menu.cljs
+msgid "dashboard.file-menu.link-copied"
+msgstr "Link copiado"
+
+#: src/app/main/ui/dashboard/file_menu.cljs
+msgid "dashboard.file-menu.link-error"
+msgstr "Não foi possível copiar o link"
+
+#: src/app/main/ui/dashboard/file_menu.cljs
+msgid "dashboard.file-menu.version-history"
+msgstr "Mostrar histórico de versões"
+
+#: src/app/main/ui/dashboard/file_menu.cljs
+msgid "dashboard.file-menu.move-file"
+msgstr "Mover arquivo"
+
+#: src/app/main/ui/dashboard/file_menu.cljs
+msgid "dashboard.file-menu.trash"
+msgstr "Mover para a lixeira"
 
 #: src/app/main/ui/dashboard/sidebar.cljs
 msgid "dashboard.home.all-projects"

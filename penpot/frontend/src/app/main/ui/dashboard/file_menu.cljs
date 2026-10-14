@@ -18,6 +18,7 @@
    [app.main.store :as st]
    [app.main.ui.context :as ctx]
    [app.main.ui.ds.layout.menu :refer [menu* menu-item* menu-separator* sub-menu*]]
+   [app.util.clipboard :as clipboard]
    [app.util.i18n :as i18n :refer [tr]]
    [beicon.v2.core :as rx]
    [rumext.v2 :as mf]))
@@ -117,6 +118,28 @@
           (st/emit! (dcm/go-to-workspace
                      {:file-id (:id file)
                       ::rt/new-window true})))
+
+        ;; Proto Care: Figma-like file menu (open, copy link, version
+        ;; history, move to trash)
+        on-open
+        (fn []
+          (st/emit! (dcm/go-to-workspace {:team-id current-team-id
+                                          :file-id (:id file)})))
+
+        on-copy-link
+        (fn []
+          (let [url (str (.-origin js/location) (.-pathname js/location)
+                         "?screen=workspace&team-id=" current-team-id
+                         "&file-id=" (:id file))]
+            (-> (clipboard/to-clipboard url)
+                (.then #(st/emit! (ntf/success (tr "dashboard.file-menu.link-copied"))))
+                (.catch #(st/emit! (ntf/error (tr "dashboard.file-menu.link-error")))))))
+
+        on-version-history
+        (fn []
+          (st/emit! (dcm/go-to-workspace {:team-id current-team-id
+                                          :file-id (:id file)
+                                          :layout :document-history})))
 
         on-duplicate
         (fn []
@@ -290,26 +313,40 @@
 
       :else
       [:*
+       [:> menu-item* {:id "file-open" :on-action on-open}
+        (tr "dashboard.file-menu.open")]
        [:> menu-item* {:id "file-open-new-tab" :on-action on-new-tab}
         (tr "dashboard.open-in-new-tab")]
 
-       (when (and (not is-search-page?) can-edit)
-         [:> menu-item* {:id "file-rename" :on-action on-edit}
-          (tr "labels.rename")])
+       [:> menu-separator*]
+
+       [:> menu-item* {:id "file-copy-link" :on-action on-copy-link}
+        (tr "dashboard.file-menu.copy-link")]
 
        (when (and (not is-search-page?) can-edit)
          [:> menu-item* {:id "file-duplicate" :on-action on-duplicate}
           (tr "dashboard.duplicate")])
 
+       [:> menu-separator*]
+
+       [:> menu-item* {:id "file-version-history" :on-action on-version-history}
+        (tr "dashboard.file-menu.version-history")]
+
+       (when (and (not is-search-page?) can-edit)
+         [:> menu-item* {:id "file-rename" :on-action on-edit}
+          (tr "labels.rename")])
+
        (when (and (not is-lib-page?)
                   (not is-search-page?)
                   (or (seq current-projects) (seq other-teams))
                   can-edit)
-         [:> sub-menu* {:id "file-move-to" :trigger (tr "dashboard.move-to") :variant "drilldown"}
+         [:> sub-menu* {:id "file-move-to" :trigger (tr "dashboard.file-menu.move-file") :variant "drilldown"}
           [:> move-to-items* {:current-projects current-projects
                               :other-teams other-teams
                               :current-team-id current-team-id
                               :on-move on-move}]])
+
+       [:> menu-separator*]
 
        (when (and (not is-search-page?) can-edit)
          ;; Same id in both branches: :is-shared can flip while this menu
@@ -323,8 +360,6 @@
            [:> menu-item* {:id "file-shared-toggle" :on-action on-add-shared}
             (tr "dashboard.add-shared")]))
 
-       [:> menu-separator*]
-
        [:> menu-item* {:id "download-binary-file" :on-action on-export-binary-files}
         (tr "dashboard.download-binary-file")]
 
@@ -332,7 +367,7 @@
          [:*
           [:> menu-separator*]
           [:> menu-item* {:id "file-delete" :on-action on-delete}
-           (tr "labels.delete")]])])))
+           (tr "dashboard.file-menu.trash")]])])))
 
 (mf/defc file-menu*
   [{:keys [files on-edit is-open on-open-change trigger navigate origin can-edit can-restore is-list]}]
