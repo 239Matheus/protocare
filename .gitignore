@@ -1,0 +1,22 @@
+# Proto Care — root ignores. Nested .gitignore files inside penpot/ still apply.
+
+# Portable toolchain (downloaded, see README)
+tools/jdk/
+tools/deps-clj/
+
+# Logs and scratch
+tools/*.log
+*.log
+
+# Spare LF clone used once to renormalize line endings, kept temporarily on the dev machine
+penpot-lf/
+
+# Upstream git metadata of the Penpot fork (kept aside for syncing)
+penpot/.git-upstream/
+
+# Local caches
+penpot/.cpcache/
+penpot/**/.cpcache/
+penpot/.ci-logs/
+.DS_Store
+Thumbs.db

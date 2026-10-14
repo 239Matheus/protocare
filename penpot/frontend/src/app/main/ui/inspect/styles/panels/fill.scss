@@ -1,0 +1,16 @@
+// Proto Care — Governance Engine
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+@use "ds/typography.scss" as *;
+
+.governance-warning {
+  @include use-typography("body-small");
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  padding: 0 0 var(--sp-xs) var(--sp-m);
+  color: var(--color-accent-warning);
+}

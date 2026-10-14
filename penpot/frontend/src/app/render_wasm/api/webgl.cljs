@@ -1,0 +1,316 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+;;
+;; Copyright (c) KALEIDOS SUBSIDIARY SL
+
+(ns app.render-wasm.api.webgl
+  "WebGL context creation and utilities for pixel capture and rendering"
+  (:require
+   [app.common.logging :as log]
+   [app.common.math :as mth]
+   [app.common.render-wasm.helpers :as h]
+   [app.common.render-wasm.wasm :as wasm]
+   [promesa.core :as p]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Context
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def default-context-options
+  "Shared WebGL2 context attributes"
+  #js {:antialias false
+       :depth true
+       :stencil true
+       :alpha true
+       :preserveDrawingBuffer true})
+
+(def ^:const ^:private max-surface-size
+  ;; Must match `gpu_state::MAX_SURFACE_SIZE`.
+  8192)
+
+(defn canvas-css-size
+  "Return canvas size in CSS pixels.
+
+  - For DOM canvases: use `clientWidth/clientHeight`.
+  - For OffscreenCanvas: fall back to `width/height` (physical px) converted by DPR."
+  [canvas dpr]
+  (let [cw (.-clientWidth ^js canvas)
+        ch (.-clientHeight ^js canvas)]
+    (if (and (number? cw) (pos? cw)
+             (number? ch) (pos? ch))
+      [cw ch]
+      [(/ (.-width ^js canvas) dpr)
+       (/ (.-height ^js canvas) dpr)])))
+
+(defn clamp-physical-size
+  "Clamp physical pixel dimensions before assigning `canvas.width/height`.
+  Rust `resize` applies the same cap and syncs the effective DPR from the
+  real drawing buffer."
+  [w h]
+  (let [w     (mth/max 1 w)
+        h     (mth/max 1 h)
+        scale (mth/min 1 (/ max-surface-size w) (/ max-surface-size h))]
+    [(mth/max 1 (mth/floor (* scale w)))
+     (mth/max 1 (mth/floor (* scale h)))]))
+
+(defn delete-context!
+  "Deletes an Emscripten GL context by handle.Never throws."
+  [module handle]
+  (when (some? handle)
+    (try
+      ;; We look the method up by string key bc dot access would let `:advanced`
+      ;; builds rename the Emscripten method
+      (let [gl             (unchecked-get module "GL")
+            delete-context (unchecked-get gl "deleteContext")]
+        (when (fn? delete-context)
+          (.call ^js delete-context gl handle)))
+      (catch :default _))))
+
+(defn release-context!
+  "Releases renderer state and a WebGL context owned by the caller.
+  `handle` may be nil if Emscripten registration failed. Each release is
+  attempted even when an earlier one throws; cleanup must preserve the
+  original initialization failure. Writes no global lifecycle state."
+  [module context handle]
+  (when (some? handle)
+    (try
+      (h/call module "_clean_up")
+      (catch :default _)))
+  (try
+    (when-let [ext (.getExtension ^js context "WEBGL_lose_context")]
+      (.loseContext ^js ext))
+    (catch :default _))
+  (delete-context! module handle))
+
+(defn init-context
+  "Create a WebGL2 context on `canvas` and run the WASM renderer init sequence.
+
+  Expects all values resolved by the caller. Writes no `wasm/` atoms and installs
+  no listeners.
+
+  - `opts` has keys `module`, `context-id`, `css-width`, `css-height`, `dpr`,
+     `flags`, `browser`, and `params`.
+  - `module` is the Emscripten module object holding `GL`, `_init`,
+    `_set_render_options`, and `_set_browser`. `context-id` is `\"webgl2\"`
+    (or `\"fail\"` to force the debug failure path).
+  - `css-width` and `css-height` are CSS pixel sizes already probed and clamped
+    to at least 1.
+  - `params` maps tunable keywords to values (which pass to `_set_*` unchecked):
+      - `:antialias_threshold`
+      - `:viewport_interest_area_threshold`
+      - `:max_blocking_time_ms`
+      - `:node_batch_threshold`
+      - `:blur_downscale_threshold`
+
+  Returns `{:context :handle}` or nil when `getContext` returns nil.
+  On failure, releases acquired resources before rethrowing. On success,
+  ownership transfers to the caller."
+  [canvas {:keys [module context-id css-width css-height dpr flags browser params]}]
+  (let [gl      (unchecked-get module "GL")
+        context (.getContext ^js canvas context-id default-context-options)]
+    (when-not (nil? context)
+      (let [handle (volatile! nil)]
+        (try
+          (vreset! handle (.registerContext ^js gl context #js {"majorVersion" 2}))
+          (.makeContextCurrent ^js gl @handle)
+
+          ;; Force the WEBGL_debug_renderer_info extension as emscripten does not enable it
+          (.getExtension context "WEBGL_debug_renderer_info")
+
+          ;; Initialize Wasm Render Engine
+          (h/call module "_init" css-width css-height)
+          (h/call module "_set_render_options" flags dpr)
+
+          ;; Configurable parameters, fixed order to match the editor path.
+          (when-let [value (:antialias_threshold params)]
+            (h/call module "_set_antialias_threshold" value))
+          (when-let [value (:viewport_interest_area_threshold params)]
+            (h/call module "_set_viewport_interest_area_threshold" value))
+          (when-let [value (:max_blocking_time_ms params)]
+            (h/call module "_set_max_blocking_time_ms" value))
+          (when-let [value (:node_batch_threshold params)]
+            (h/call module "_set_node_batch_threshold" value))
+          (when-let [value (:blur_downscale_threshold params)]
+            (h/call module "_set_blur_downscale_threshold" value))
+
+          (h/call module "_set_browser" browser)
+          {:context context
+           :handle  @handle}
+          (catch :default cause
+            (release-context! module context @handle)
+            (throw cause)))))))
+
+(defn get-webgl-context
+  "Gets the WebGL context from the WASM module"
+  []
+  (when (wasm/live?)
+    (let [gl-obj (unchecked-get wasm/internal-module "GL")]
+      (when gl-obj
+        ;; Get the current WebGL context from Emscripten
+        ;; The GL object has a currentContext property that contains the context handle
+        (let [current-ctx (.-currentContext ^js gl-obj)]
+          (when current-ctx
+            (.-GLctx ^js current-ctx)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Bitmap rendering
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn create-webgl-texture-from-image
+  "Creates a WebGL texture from an HTMLImageElement or ImageBitmap and returns the texture object"
+  [gl image-element]
+  (let [texture (.createTexture ^js gl)]
+    (.bindTexture ^js gl (.-TEXTURE_2D ^js gl) texture)
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_WRAP_S ^js gl) (.-CLAMP_TO_EDGE ^js gl))
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_WRAP_T ^js gl) (.-CLAMP_TO_EDGE ^js gl))
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_MIN_FILTER ^js gl) (.-LINEAR ^js gl))
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_MAG_FILTER ^js gl) (.-LINEAR ^js gl))
+    (.texImage2D ^js gl (.-TEXTURE_2D ^js gl) 0 (.-RGBA ^js gl) (.-RGBA ^js gl) (.-UNSIGNED_BYTE ^js gl) image-element)
+    (.bindTexture ^js gl (.-TEXTURE_2D ^js gl) nil)
+    texture))
+
+;; FIXME: temporary function until we are able to keep the same <canvas> across pages.
+(defn- draw-imagedata-to-webgl
+  "Draws ImageData to a WebGL2 context by creating a texture"
+  [gl image-data]
+  (let [width (.-width ^js image-data)
+        height (.-height ^js image-data)
+        texture (.createTexture ^js gl)]
+    ;; Bind texture and set parameters
+    (.bindTexture ^js gl (.-TEXTURE_2D ^js gl) texture)
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_WRAP_S ^js gl) (.-CLAMP_TO_EDGE ^js gl))
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_WRAP_T ^js gl) (.-CLAMP_TO_EDGE ^js gl))
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_MIN_FILTER ^js gl) (.-LINEAR ^js gl))
+    (.texParameteri ^js gl (.-TEXTURE_2D ^js gl) (.-TEXTURE_MAG_FILTER ^js gl) (.-LINEAR ^js gl))
+    (.texImage2D ^js gl (.-TEXTURE_2D ^js gl) 0 (.-RGBA ^js gl) (.-RGBA ^js gl) (.-UNSIGNED_BYTE ^js gl) image-data)
+
+    ;; Set up viewport
+    (.viewport ^js gl 0 0 width height)
+
+    ;; Vertex & Fragment shaders
+    ;; Since we are only calling this function once (on page switch), we don't need
+    ;; to cache the compiled shaders somewhere else (cannot be reused in a differen context).
+    (let [vertex-shader-source "#version 300 es
+in vec2 a_position;
+in vec2 a_texCoord;
+out vec2 v_texCoord;
+void main() {
+  gl_Position = vec4(a_position, 0.0, 1.0);
+  v_texCoord = a_texCoord;
+}"
+          fragment-shader-source "#version 300 es
+precision highp float;
+in vec2 v_texCoord;
+uniform sampler2D u_texture;
+out vec4 fragColor;
+void main() {
+  fragColor = texture(u_texture, v_texCoord);
+}"
+          vertex-shader (.createShader ^js gl (.-VERTEX_SHADER ^js gl))
+          fragment-shader (.createShader ^js gl (.-FRAGMENT_SHADER ^js gl))
+          program (.createProgram ^js gl)]
+      (.shaderSource ^js gl vertex-shader vertex-shader-source)
+      (.compileShader ^js gl vertex-shader)
+      (when-not (.getShaderParameter ^js gl vertex-shader (.-COMPILE_STATUS ^js gl))
+        (log/error :hint "Vertex shader compilation failed"
+                   :log (.getShaderInfoLog ^js gl vertex-shader)))
+
+      (.shaderSource ^js gl fragment-shader fragment-shader-source)
+      (.compileShader ^js gl fragment-shader)
+      (when-not (.getShaderParameter ^js gl fragment-shader (.-COMPILE_STATUS ^js gl))
+        (log/error :hint "Fragment shader compilation failed"
+                   :log (.getShaderInfoLog ^js gl fragment-shader)))
+
+      (.attachShader ^js gl program vertex-shader)
+      (.attachShader ^js gl program fragment-shader)
+      (.linkProgram ^js gl program)
+
+      (if (.getProgramParameter ^js gl program (.-LINK_STATUS ^js gl))
+        (do
+          (.useProgram ^js gl program)
+
+          ;; Create full-screen quad vertices (normalized device coordinates)
+          (let [position-location (.getAttribLocation ^js gl program "a_position")
+                texcoord-location (.getAttribLocation ^js gl program "a_texCoord")
+                position-buffer (.createBuffer ^js gl)
+                texcoord-buffer (.createBuffer ^js gl)
+                positions #js [-1.0 -1.0  1.0 -1.0  -1.0 1.0  -1.0 1.0  1.0 -1.0  1.0 1.0]
+                texcoords #js [0.0 0.0  1.0 0.0  0.0 1.0  0.0 1.0  1.0 0.0  1.0 1.0]]
+            ;; Set up position buffer
+            (.bindBuffer ^js gl (.-ARRAY_BUFFER ^js gl) position-buffer)
+            (.bufferData ^js gl (.-ARRAY_BUFFER ^js gl) (js/Float32Array. positions) (.-STATIC_DRAW ^js gl))
+            (.enableVertexAttribArray ^js gl position-location)
+            (.vertexAttribPointer ^js gl position-location 2 (.-FLOAT ^js gl) false 0 0)
+            ;; Set up texcoord buffer
+            (.bindBuffer ^js gl (.-ARRAY_BUFFER ^js gl) texcoord-buffer)
+            (.bufferData ^js gl (.-ARRAY_BUFFER ^js gl) (js/Float32Array. texcoords) (.-STATIC_DRAW ^js gl))
+            (.enableVertexAttribArray ^js gl texcoord-location)
+            (.vertexAttribPointer ^js gl texcoord-location 2 (.-FLOAT ^js gl) false 0 0)
+            ;; Set texture uniform
+            (.activeTexture ^js gl (.-TEXTURE0 ^js gl))
+            (.bindTexture ^js gl (.-TEXTURE_2D ^js gl) texture)
+            (let [texture-location (.getUniformLocation ^js gl program "u_texture")]
+              (.uniform1i ^js gl texture-location 0))
+
+            ;; draw
+            (.drawArrays ^js gl (.-TRIANGLES ^js gl) 0 6)
+
+            ;; cleanup
+            (.deleteBuffer ^js gl position-buffer)
+            (.deleteBuffer ^js gl texcoord-buffer)
+            (.deleteShader ^js gl vertex-shader)
+            (.deleteShader ^js gl fragment-shader)
+            (.deleteProgram ^js gl program)))
+        (log/error :hint "Program linking failed"
+                   :log (.getProgramInfoLog ^js gl program)))
+
+      (.bindTexture ^js gl (.-TEXTURE_2D ^js gl) nil)
+      (.deleteTexture ^js gl texture))))
+
+(defn capture-canvas-snapshot
+  "Captures the current viewport canvas as an `ImageBitmap` and stores it in
+  `wasm/canvas-snapshot`. It avoids `canvas.toBlob`'s PNG encoding, but the
+  readback itself is not free: on Firefox, `createImageBitmap` on a WebGL canvas
+  takes a synchronous back-buffer snapshot over IPC before the promise is even
+  created, which blocks the main thread until the queued GL commands drain.
+  Callers must only invoke it when the renderer is idle.
+
+  Returns a promise resolving to the ImageBitmap (or nil)."
+  []
+  (if-let [^js canvas wasm/canvas]
+    (-> (js/createImageBitmap canvas)
+        (p/then (fn [^js bitmap]
+                  (set! wasm/canvas-snapshot bitmap)
+                  bitmap))
+        (p/catch (fn [_] nil)))
+    (p/resolved nil)))
+
+(defn draw-thumbnail-to-canvas
+  "Loads an image from `uri` and draws it stretched to fill the WebGL canvas.
+   Returns a promise that resolves to true if drawn, false otherwise."
+  [uri]
+  (if (and uri wasm/canvas wasm/gl-context)
+    (p/create
+     (fn [resolve _reject]
+       (let [img (js/Image.)]
+         (set! (.-crossOrigin img) "anonymous")
+         (set! (.-onload img)
+               (fn []
+                 (if wasm/gl-context
+                   (let [gl     wasm/gl-context
+                         width  (.-width wasm/canvas)
+                         height (.-height wasm/canvas)
+                         ;; Draw image to an offscreen 2D canvas, scaled to fill
+                         canvas2d (js/OffscreenCanvas. width height)
+                         ctx2d   (.getContext canvas2d "2d")]
+                     (.drawImage ctx2d img 0 0 width height)
+                     (let [image-data (.getImageData ctx2d 0 0 width height)]
+                       (draw-imagedata-to-webgl gl image-data))
+                     (resolve true))
+                   (resolve false))))
+         (set! (.-onerror img)
+               (fn [_]
+                 (resolve false)))
+         (set! (.-src img) uri))))
+    (p/resolved false)))

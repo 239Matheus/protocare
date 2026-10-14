@@ -1,0 +1,77 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+;;
+;; Copyright (c) KALEIDOS SUBSIDIARY SL
+
+(ns backend-tests.demo-test
+  (:require
+   [app.common.time :as ct]
+   [app.db :as db]
+   [app.jobs :as jobs]
+   [app.rpc.commands.profile :as profile]
+   [app.tasks.demo-purge :as demo-purge]
+   [backend-tests.helpers :as th]
+   [clojure.test :as t]
+   [integrant.core :as ig]))
+
+(t/use-fixtures :once th/state-init)
+(t/use-fixtures :each th/database-reset)
+
+(t/deftest demo-profile-created-without-deleted-at
+  (let [profile (th/create-profile* 999 {:is-demo true})]
+    (t/is (true? (:is-demo profile)))
+    (t/is (nil? (:deleted-at profile)))
+    (t/is (some? (:id profile)))))
+
+(t/deftest get-profile-finds-demo-user-without-override
+  (let [profile (th/create-profile* 998 {:is-demo true})
+        found   (db/run! th/*pool*
+                         (fn [{:keys [::db/conn]}]
+                           (profile/get-profile conn (:id profile))))]
+    (t/is (some? found))
+    (t/is (= (:id profile) (:id found)))))
+
+(t/deftest demo-purge-handler-submits-delete-object
+  (let [profile   (th/create-profile* 996 {:is-demo true})
+        handler   (ig/init-key :app.tasks.demo-purge/job-def
+                               {::db/pool th/*pool*
+                                ::jobs/defs {:delete-object {::jobs/name    :delete-object
+                                                             ::jobs/schema  [:map]
+                                                             ::jobs/handler (fn [_context params] params)
+                                                             ::jobs/decoder identity
+                                                             ::jobs/validator (fn [_] true)}}})
+        submitted (atom nil)]
+    (with-redefs [jobs/submit (fn [cfg options]
+                                (reset! submitted
+                                        {:name (get options ::jobs/name)
+                                         :params (get options ::jobs/params)}))]
+      ((::jobs/handler handler) nil {:profile-id (:id profile)}))
+    (t/is (= :delete-object (:name @submitted)))
+    (t/is (= :profile (:object (:params @submitted))))
+    (t/is (= (:id profile) (:id (:params @submitted))))
+    (t/is (some? (:deleted-at (:params @submitted))))))
+
+(t/deftest job-handler-uses-its-closed-cfg
+  "The handler is [context params]: the job-def keeps the dependencies it
+  closed over at init time, so it still reaches the database through its
+  own pool and needs nothing from the caller."
+  (let [profile   (th/create-profile* 997 {:is-demo true})
+        handler   (ig/init-key :app.tasks.demo-purge/job-def
+                               {::db/pool th/*pool*
+                                ::jobs/defs {:delete-object {::jobs/name    :delete-object
+                                                             ::jobs/schema  [:map]
+                                                             ::jobs/handler (fn [_context params] params)
+                                                             ::jobs/decoder identity
+                                                             ::jobs/validator (fn [_] true)}}})
+        submitted (atom nil)]
+    (with-redefs [jobs/submit (fn [cfg options]
+                                (reset! submitted
+                                        {:pool (::db/pool cfg)
+                                         :params (get options ::jobs/params)}))]
+      ((::jobs/handler handler) nil {:profile-id (:id profile)})
+
+      (t/testing "the closed pool is the one the handler submitted with"
+        (t/is (db/pool? (:pool @submitted)))
+        (t/is (identical? th/*pool* (:pool @submitted)))
+        (t/is (= (:id profile) (:id (:params @submitted))))))))

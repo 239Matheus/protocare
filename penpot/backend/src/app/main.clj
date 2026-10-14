@@ -1,0 +1,973 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+;;
+;; Copyright (c) KALEIDOS SUBSIDIARY SL
+
+(ns app.main
+  (:require
+   [app.auth.ldap :as-alias ldap]
+   [app.auth.oidc :as-alias oidc]
+   [app.auth.oidc.providers :as-alias oidc.providers]
+   [app.common.exceptions :as ex]
+   [app.common.logging :as l]
+   [app.common.time :as ct]
+   [app.config :as cf]
+   [app.db :as-alias db]
+   [app.email :as-alias email]
+   [app.http :as-alias http]
+   [app.http.assets :as-alias http.assets]
+   [app.http.awsns :as http.awsns]
+   [app.http.client :as-alias http.client]
+   [app.http.debug :as-alias http.debug]
+   [app.http.link-preview :as-alias http.link-preview]
+   [app.http.management :as mgmt]
+   [app.http.session :as session]
+   [app.http.websocket :as http.ws]
+   [app.jobs :as-alias jobs]
+   [app.jobs.gc :as-alias jobs.gc]
+   [app.jobs.metrics :as jobs-metrics]
+   [app.loggers.webhooks :as-alias webhooks]
+   [app.metrics :as-alias mtx]
+   [app.metrics.definition :as-alias mdef]
+   [app.msgbus :as-alias mbus]
+   [app.redis :as-alias rds]
+   [app.rpc :as-alias rpc]
+   [app.rpc.climit :as-alias climit]
+   [app.setup :as-alias setup]
+   [app.srepl :as-alias srepl]
+   [app.storage :as-alias sto]
+   [app.storage.fs :as-alias sto.fs]
+   [app.storage.gc-deleted :as-alias sto.gc-deleted]
+   [app.storage.gc-touched :as-alias sto.gc-touched]
+   [app.storage.pending-gc :as-alias sto.pending-gc]
+   [app.storage.s3 :as-alias sto.s3]
+   [app.system :as sys]
+   [app.util.cron]
+   [app.worker :as-alias wrk]
+   [app.worker.executor]
+   [clojure.test :as test]
+   [clojure.tools.namespace.repl :as repl]
+   [cuerdas.core :as str]
+   [integrant.core :as ig]
+   [promesa.exec :as px])
+  (:gen-class))
+
+(def default-metrics
+  {:update-file-changes
+   {::mdef/name "penpot_rpc_update_file_changes_total"
+    ::mdef/help "A total number of changes submitted to update-file."
+    ::mdef/type :counter}
+
+   :update-file-bytes-processed
+   {::mdef/name "penpot_rpc_update_file_bytes_processed_total"
+    ::mdef/help "A total number of bytes processed by update-file."
+    ::mdef/type :counter}
+
+   :rpc-main-timing
+   {::mdef/name "penpot_rpc_main_timing"
+    ::mdef/help "RPC command method call timing for main"
+    ::mdef/labels ["name"]
+    ::mdef/type :histogram}
+
+   :rpc-management-timing
+   {::mdef/name "penpot_rpc_management_timing"
+    ::mdef/help "RPC command method call timing for management."
+    ::mdef/labels ["name"]
+    ::mdef/type :histogram}
+
+   :websocket-active-connections
+   {::mdef/name "penpot_websocket_active_connections"
+    ::mdef/help "Active websocket connections gauge"
+    ::mdef/type :gauge}
+
+   :websocket-messages-total
+   {::mdef/name "penpot_websocket_message_total"
+    ::mdef/help "Counter of processed messages."
+    ::mdef/labels ["op"]
+    ::mdef/type :counter}
+
+   :websocket-session-timing
+   {::mdef/name "penpot_websocket_session_timing"
+    ::mdef/help "Websocket session timing (seconds)."
+    ::mdef/type :summary}
+
+   :session-update-total
+   {::mdef/name "penpot_http_session_update_total"
+    ::mdef/help "A counter of session update batch events."
+    ::mdef/type :counter}
+
+   :tasks-timing
+   {::mdef/name "penpot_tasks_timing"
+    ;; Deprecated: superseded by `penpot_jobs_execution_ms`, which adds a
+    ;; queue label. Kept only for existing dashboards and alerts. The help
+    ;; text is what someone reading /metrics sees, so it is where the
+    ;; redirect belongs: the name and the labels stay untouched, so no
+    ;; panel or alert breaks.
+    ::mdef/help "Deprecated: use penpot_jobs_execution_ms, which adds a queue label."
+    ::mdef/labels ["name"]
+    ::mdef/type :histogram}
+
+   :redis-eval-timing
+   {::mdef/name "penpot_redis_eval_timing"
+    ::mdef/help "Redis EVAL commands execution timings (ms)"
+    ::mdef/labels ["name"]
+    ::mdef/type :histogram}
+
+   :rpc-climit-waiting
+   {::mdef/name "penpot_rpc_climit_waiting"
+    ::mdef/help "Calls of this limiter name waiting for a permit, on this instance."
+    ::mdef/labels ["name"]
+    ::mdef/type :gauge}
+
+   :rpc-climit-rejected
+   {::mdef/name "penpot_rpc_climit_rejected_total"
+    ::mdef/help "Calls rejected by this limiter, by name and reason."
+    ::mdef/labels ["name" "reason"]
+    ::mdef/type :counter}
+
+   :rpc-climit-timing
+   {::mdef/name "penpot_rpc_climit_timing"
+    ::mdef/help "Summary of the time between queuing and executing on the CLIMIT"
+    ::mdef/labels ["name"]
+    ::mdef/type :histogram}
+
+   :audit-http-handler-queue-size
+   {::mdef/name "penpot_audit_http_handler_queue_size"
+    ::mdef/help "Current number of queued submissions on the audit log http handler"
+    ::mdef/labels []
+    ::mdef/type :gauge}
+
+   :audit-http-handler-concurrency
+   {::mdef/name "penpot_audit_http_handler_concurrency"
+    ::mdef/help "Current number of used concurrency capacity on the audit log http handler"
+    ::mdef/labels []
+    ::mdef/type :gauge}
+
+   :audit-http-handler-timing
+   {::mdef/name "penpot_audit_http_handler_timing"
+    ::mdef/help "Summary of the time between queuing and executing on the audit log http handler"
+    ::mdef/labels []
+    ::mdef/type :histogram}
+
+   :storage-s3-requests
+   {::mdef/name "penpot_storage_s3_requests_total"
+    ::mdef/help "Total S3 API calls performed by the storage backend."
+    ::mdef/labels ["operation" "target" "result"]
+    ::mdef/type :counter}
+
+   :storage-s3-retries
+   {::mdef/name "penpot_storage_s3_retries_total"
+    ::mdef/help "Total SDK retries observed on S3 API calls."
+    ::mdef/labels ["operation" "target"]
+    ::mdef/type :counter}
+
+   :storage-s3-timing
+   {::mdef/name "penpot_storage_s3_timing"
+    ::mdef/help "S3 API call timing (milliseconds)."
+    ::mdef/labels ["operation" "target"]
+    ::mdef/type :histogram
+    ::mdef/buckets [5 10 25 50 100 250 500 1000 2500 5000 10000 30000 60000]}
+
+   :storage-operations
+   {::mdef/name "penpot_storage_operations_total"
+    ::mdef/help "Logical storage operations by Penpot bucket."
+    ::mdef/labels ["op" "bucket" "backend"]
+    ::mdef/type :counter}
+
+   :storage-dedup
+   {::mdef/name "penpot_storage_dedup_total"
+    ::mdef/help "Storage deduplication outcomes."
+    ::mdef/labels ["result" "bucket"]
+    ::mdef/type :counter}
+
+   :storage-asset-requests
+   {::mdef/name "penpot_storage_asset_requests_total"
+    ::mdef/help "Asset requests served by app.http.assets."
+    ::mdef/labels ["route" "backend" "bucket" "result"]
+    ::mdef/type :counter}
+
+   :storage-gc-poison
+   {::mdef/name "penpot_storage_gc_poison_total"
+    ::mdef/help "Storage objects deferred by storage-gc-touched because their metadata is corrupt."
+    ::mdef/labels []
+    ::mdef/type :counter}
+
+   :http-server-dispatch-timing
+   {::mdef/name "penpot_http_server_dispatch_timing"
+    ::mdef/help "Histogram of dispatch handler"
+    ::mdef/labels []
+    ::mdef/type :histogram}
+
+   :http-worker-queue-size
+   {::mdef/name "penpot_http_worker_queue_size"
+    ::mdef/help "Current number of queued tasks in the http server xnio worker."
+    ::mdef/type :gauge}
+
+   :http-worker-pool-size
+   {::mdef/name "penpot_http_worker_pool_size"
+    ::mdef/help "Current number of threads in the http server xnio worker pool."
+    ::mdef/type :gauge}
+
+   :http-worker-max-pool-size
+   {::mdef/name "penpot_http_worker_max_pool_size"
+    ::mdef/help "Maximum number of threads of the http server xnio worker pool."
+    ::mdef/type :gauge}
+
+   :http-connector-active-connections
+   {::mdef/name "penpot_http_connector_active_connections"
+    ::mdef/help "Current number of active connections in the http listener."
+    ::mdef/type :gauge}
+
+   :http-connector-requests-total
+   {::mdef/name "penpot_http_connector_requests_total"
+    ::mdef/help "Total number of requests handled by the http listener."
+    ::mdef/type :counter}
+
+   :http-connector-errors-total
+   {::mdef/name "penpot_http_connector_errors_total"
+    ::mdef/help "Total number of handler errors in the http listener."
+    ::mdef/type :counter}
+
+   :jobs-submitted
+   {::mdef/name "penpot_jobs_submitted_total"
+    ::mdef/help "Total number of durable jobs submitted."
+    ::mdef/labels ["name" "queue"]
+    ::mdef/type :counter}
+
+   :jobs-skipped
+   {::mdef/name "penpot_jobs_skipped_total"
+    ::mdef/help "Total number of durable job submissions skipped by skip-if-active."
+    ::mdef/labels ["name" "queue"]
+    ::mdef/type :counter}
+
+   :jobs-dispatched
+   {::mdef/name "penpot_jobs_dispatched_total"
+    ::mdef/help "Total number of jobs pushed to a worker queue. Counts pushes, not claims: compare with the _count of penpot_jobs_queue_wait_ms."
+    ::mdef/labels ["name" "queue"]
+    ::mdef/type :counter}
+
+   :jobs-retries
+   {::mdef/name "penpot_jobs_retries_total"
+    ::mdef/help "Total number of durable jobs rescheduled for retry."
+    ::mdef/labels ["name" "queue" "reason"]
+    ::mdef/type :counter}
+
+   :jobs-events-total
+   {::mdef/name "penpot_jobs_events_total"
+    ::mdef/help "Total number of job events stored."
+    ::mdef/type :counter}
+
+   :jobs-orphaned
+   {::mdef/name "penpot_jobs_orphaned_total"
+    ::mdef/help "Total number of running jobs marked as orphaned."
+    ::mdef/labels ["queue"]
+    ::mdef/type :counter}
+
+   :jobs-rescheduled
+   {::mdef/name "penpot_jobs_rescheduled_total"
+    ::mdef/help "Total number of scheduled jobs recovered after transit loss."
+    ::mdef/labels ["queue"]
+    ::mdef/type :counter}
+
+   :jobs-queue-wait-timing
+   {::mdef/name "penpot_jobs_queue_wait_ms"
+    ::mdef/help "Time from job scheduling to worker claim (milliseconds). Its _count counts claims, not pushes: compare with penpot_jobs_dispatched_total."
+    ::mdef/labels ["name" "queue"]
+    ::mdef/type :histogram
+    ::mdef/buckets [1 10 50 100 500 1000 5000 10000 30000 60000 300000 600000]}
+
+   :jobs-execution-timing
+   {::mdef/name "penpot_jobs_execution_ms"
+    ::mdef/help "Time spent executing a job handler (milliseconds)."
+    ::mdef/labels ["name" "queue"]
+    ::mdef/type :histogram
+    ::mdef/buckets [1 10 50 100 500 1000 5000 10000 30000 60000 300000 600000]}
+
+   :jobs-total-timing
+   {::mdef/name "penpot_jobs_total_ms"
+    ::mdef/help "Time from job creation to a terminal state (milliseconds). Its _count is the terminal total per outcome."
+    ::mdef/labels ["name" "queue" "outcome"]
+    ::mdef/type :histogram
+    ::mdef/buckets [10 50 100 500 1000 5000 10000 30000 60000 300000 600000 3600000]}
+
+   :jobs-dispatcher-timing
+   {::mdef/name "penpot_jobs_dispatcher_ms"
+    ::mdef/help "Dispatcher batch processing time (milliseconds)."
+    ::mdef/labels ["stage" "outcome"]
+    ::mdef/type :histogram
+    ::mdef/buckets [1 10 50 100 500 1000 5000 10000 30000 60000]}
+
+   :jobs-dispatcher-batch-size
+   {::mdef/name "penpot_jobs_dispatcher_batch_size"
+    ::mdef/help "Number of jobs in a dispatcher queue batch."
+    ::mdef/labels ["queue"]
+    ::mdef/type :histogram
+    ::mdef/buckets [1 5 10 25 50 100 250 500 1000]}
+
+   :jobs-backlog
+   {::mdef/name "penpot_jobs_backlog"
+    ::mdef/help "Current number of jobs grouped by status."
+    ::mdef/labels ["status"]
+    ::mdef/type :gauge}
+
+   :jobs-oldest-pending-age
+   {::mdef/name "penpot_jobs_oldest_pending_age_seconds"
+    ::mdef/help "Age in seconds of the oldest pending job."
+    ::mdef/type :gauge}
+
+   :jobs-gc-rows
+   {::mdef/name "penpot_jobs_gc_rows_total"
+    ::mdef/help "Rows removed or resources touched by the jobs garbage collector."
+    ::mdef/labels ["kind" "action"]
+    ::mdef/type :counter}
+
+   :jobs-gc-timing
+   {::mdef/name "penpot_jobs_gc_ms"
+    ::mdef/help "Time spent in each jobs garbage collection pass (milliseconds)."
+    ::mdef/labels ["kind"]
+    ::mdef/type :histogram
+    ::mdef/buckets [1 10 50 100 500 1000 5000 10000 30000 60000 300000]}
+
+   :jobs-cron-total
+   {::mdef/name "penpot_jobs_cron_total"
+    ::mdef/help "Total number of cron scheduler events."
+    ::mdef/labels ["outcome" "reason"]
+    ::mdef/type :counter}
+
+   :jobs-request-timing
+   {::mdef/name "penpot_jobs_request_ms"
+    ::mdef/help "Time spent waiting for an ephemeral job reply (milliseconds). Its _count is the request total per outcome."
+    ::mdef/labels ["outcome"]
+    ::mdef/type :histogram
+    ::mdef/buckets [1 10 50 100 500 1000 5000 10000 30000 60000 300000]}})
+
+(def system-config
+  {::db/pool
+   {::db/uri        (cf/get :database-uri)
+    ::db/username   (cf/get :database-username)
+    ::db/password   (cf/get :database-password)
+    ::db/read-only  (cf/get :database-readonly false)
+    ::db/min-size   (cf/get :database-min-pool-size)
+    ::db/max-size   (cf/get :database-max-pool-size)
+    ::mtx/metrics   (ig/ref ::mtx/metrics)}
+
+   ;; Default netty IO pool (shared between several services)
+   ::wrk/netty-io-executor
+   {:threads (cf/get :netty-io-threads)}
+
+   ::wrk/executor
+   {}
+
+   :app.migrations/migrations
+   {::db/pool (ig/ref ::db/pool)}
+
+   ::mtx/metrics
+   {:default default-metrics}
+
+   ::mtx/routes
+   {::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   ::rds/client
+   {::rds/uri
+    (cf/get :redis-uri)
+
+    ::wrk/netty-io-executor
+    (ig/ref ::wrk/netty-io-executor)}
+
+   ::rds/pool
+   {::rds/client  (ig/ref ::rds/client)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   ::mbus/msgbus
+   {::wrk/executor (ig/ref ::wrk/executor)
+    ::rds/client   (ig/ref ::rds/client)
+    ::mtx/metrics  (ig/ref ::mtx/metrics)}
+
+   :app.storage.tmp/cleaner
+   {::wrk/executor (ig/ref ::wrk/executor)}
+
+   ::http.client/client
+   {::wrk/executor (ig/ref ::wrk/executor)}
+
+   ::session/manager
+   {::db/pool (ig/ref ::db/pool)}
+
+   ::http.awsns/routes
+   {::setup/props        (ig/ref ::setup/props)
+    ::db/pool            (ig/ref ::db/pool)
+    ::http.client/client (ig/ref ::http.client/client)}
+
+   ::http/server
+   {::http/port                    (cf/get :http-server-port)
+    ::http/host                    (cf/get :http-server-host)
+    ::http/io-threads              (cf/get :http-server-io-threads)
+    ::http/max-worker-threads      (cf/get :http-server-max-worker-threads)
+    ::http/max-body-size           (cf/get :http-server-max-body-size)
+    ::http/router                  (ig/ref ::http/router)
+    ::mtx/metrics                  (ig/ref ::mtx/metrics)}
+
+   ::ldap/provider
+   {:host           (cf/get :ldap-host)
+    :port           (cf/get :ldap-port)
+    :ssl            (cf/get :ldap-ssl)
+    :tls            (cf/get :ldap-starttls)
+    :query          (cf/get :ldap-user-query)
+    :attrs-email    (cf/get :ldap-attrs-email)
+    :attrs-fullname (cf/get :ldap-attrs-fullname)
+    :attrs-username (cf/get :ldap-attrs-username)
+    :base-dn        (cf/get :ldap-base-dn)
+    :bind-dn        (cf/get :ldap-bind-dn)
+    :bind-password  (cf/get :ldap-bind-password)
+    :enabled        (contains? cf/flags :login-with-ldap)}
+
+   ::oidc.providers/google
+   {}
+
+   ::oidc.providers/github
+   {::http.client/client (ig/ref ::http.client/client)}
+
+   ::oidc.providers/gitlab
+   {::http.client/client (ig/ref ::http.client/client)}
+
+   ::oidc.providers/generic
+   {::http.client/client (ig/ref ::http.client/client)}
+
+   ::oidc/providers
+   [(ig/ref ::oidc.providers/google)
+    (ig/ref ::oidc.providers/github)
+    (ig/ref ::oidc.providers/gitlab)
+    (ig/ref ::oidc.providers/generic)]
+
+   ::oidc/routes
+   {::http.client/client (ig/ref ::http.client/client)
+    ::jobs/defs          (ig/ref ::jobs/defs)
+    ::db/pool            (ig/ref ::db/pool)
+    ::setup/props        (ig/ref ::setup/props)
+    ::oidc/providers     (ig/ref ::oidc/providers)
+    ::session/manager    (ig/ref ::session/manager)
+    ::email/blacklist    (ig/ref ::email/blacklist)
+    ::email/whitelist    (ig/ref ::email/whitelist)
+    :app.nitrate/client (ig/ref :app.nitrate/client)}
+
+   ::mgmt/routes
+   {::db/pool            (ig/ref ::db/pool)
+    ::setup/props        (ig/ref ::setup/props)}
+
+   :app.http/router
+   {::session/manager    (ig/ref ::session/manager)
+    ::db/pool            (ig/ref ::db/pool)
+    ::rpc/routes         (ig/ref ::rpc/routes)
+    ::setup/props        (ig/ref ::setup/props)
+    ::mtx/routes         (ig/ref ::mtx/routes)
+    ::oidc/routes        (ig/ref ::oidc/routes)
+    ::mgmt/routes        (ig/ref ::mgmt/routes)
+    ::http.debug/routes  (ig/ref ::http.debug/routes)
+    ::http.assets/routes (ig/ref ::http.assets/routes)
+    ::http.link-preview/routes (ig/ref ::http.link-preview/routes)
+    ::http.ws/routes     (ig/ref ::http.ws/routes)
+    ::http.awsns/routes  (ig/ref ::http.awsns/routes)}
+
+   ::http.link-preview/routes
+   {::db/pool         (ig/ref ::db/pool)}
+
+   ::http.debug/routes
+   {::db/pool         (ig/ref ::db/pool)
+    ::rds/pool        (ig/ref ::rds/pool)
+    ::session/manager (ig/ref ::session/manager)
+    ::mbus/msgbus     (ig/ref ::mbus/msgbus)
+    ::sto/storage     (ig/ref ::sto/storage)
+    ::setup/props     (ig/ref ::setup/props)}
+
+   ::http.ws/routes
+   {::db/pool           (ig/ref ::db/pool)
+    ::mtx/metrics       (ig/ref ::mtx/metrics)
+    ::mbus/msgbus       (ig/ref ::mbus/msgbus)
+    ::setup/props       (ig/ref ::setup/props)
+    ::session/manager   (ig/ref ::session/manager)
+    :app.nitrate/client (ig/ref :app.nitrate/client)}
+
+   :app.http.assets/routes
+   {::http.assets/path              (cf/get :assets-path)
+    ::http.assets/cache-max-age     (ct/duration {:hours 24})
+    ::http.assets/signature-max-age (ct/duration {:hours 24 :minutes 15})
+    ::mtx/metrics                   (ig/ref ::mtx/metrics)
+    ::sto/storage                   (ig/ref ::sto/storage)
+    ::session/manager               (ig/ref ::session/manager)
+    ::setup/props                   (ig/ref ::setup/props)
+    ::db/pool                       (ig/ref ::db/pool)}
+
+   ::rpc/climit
+   {::mtx/metrics        (ig/ref ::mtx/metrics)
+    ::wrk/executor       (ig/ref ::wrk/executor)
+    ::climit/config      (cf/get :rpc-climit-config)
+    ::climit/enabled     (contains? cf/flags :rpc-climit)}
+
+   :app.rpc/rlimit
+   {::wrk/executor (ig/ref ::wrk/executor)
+
+    :app.loggers.mattermost/reporter
+    (ig/ref :app.loggers.mattermost/reporter)
+
+    :app.loggers.database/reporter
+    (ig/ref :app.loggers.database/reporter)}
+
+   :app.rpc/methods
+   {::http.client/client (ig/ref ::http.client/client)
+    ::jobs/defs           (ig/ref ::jobs/defs)
+    ::db/pool            (ig/ref ::db/pool)
+    ::rds/pool           (ig/ref ::rds/pool)
+    :app.nitrate/client  (ig/ref :app.nitrate/client)
+    ::wrk/executor       (ig/ref ::wrk/executor)
+    ::session/manager    (ig/ref ::session/manager)
+    ::ldap/provider      (ig/ref ::ldap/provider)
+    ::sto/storage        (ig/ref ::sto/storage)
+    ::mtx/metrics        (ig/ref ::mtx/metrics)
+    ::mbus/msgbus        (ig/ref ::mbus/msgbus)
+    ::rds/client         (ig/ref ::rds/client)
+
+    ::rpc/climit         (ig/ref ::rpc/climit)
+    ::rpc/rlimit         (ig/ref ::rpc/rlimit)
+    ::setup/templates    (ig/ref ::setup/templates)
+    ::setup/props        (ig/ref ::setup/props)
+    ::setup/shared-keys  (ig/ref ::setup/shared-keys)
+
+    ::email/blacklist    (ig/ref ::email/blacklist)
+    ::email/whitelist    (ig/ref ::email/whitelist)
+
+    :app.loggers.database/reporter
+    (ig/ref :app.loggers.database/reporter)
+
+    :app.loggers.mattermost/reporter
+    (ig/ref :app.loggers.mattermost/reporter)}
+
+   :app.nitrate/client
+   {::http.client/client (ig/ref ::http.client/client)
+    ::jobs/defs          (ig/ref ::jobs/defs)
+    ::setup/shared-keys  (ig/ref ::setup/shared-keys)}
+
+   :app.rpc/management-methods
+   {::http.client/client (ig/ref ::http.client/client)
+    ::jobs/defs          (ig/ref ::jobs/defs)
+    ::db/pool            (ig/ref ::db/pool)
+    ::rds/pool           (ig/ref ::rds/pool)
+    ::wrk/executor       (ig/ref ::wrk/executor)
+    ::session/manager    (ig/ref ::session/manager)
+    ::sto/storage        (ig/ref ::sto/storage)
+    ::mtx/metrics        (ig/ref ::mtx/metrics)
+    ::mbus/msgbus        (ig/ref ::mbus/msgbus)
+    :app.nitrate/client  (ig/ref :app.nitrate/client)
+    ::rds/client         (ig/ref ::rds/client)
+    ::setup/props        (ig/ref ::setup/props)}
+
+   ::rpc/routes
+   {::rpc/methods            (ig/ref :app.rpc/methods)
+    ::rpc/management-methods (ig/ref :app.rpc/management-methods)
+
+    ;; FIXME: revisit if db/pool is necessary here
+    ::db/pool                (ig/ref ::db/pool)
+    ::session/manager        (ig/ref ::session/manager)
+    ::setup/props            (ig/ref ::setup/props)
+    ::setup/shared-keys      (ig/ref ::setup/shared-keys)}
+
+   ::jobs/defs
+   {:sendmail              (ig/ref ::email/job-def)
+    :delete-object         (ig/ref :app.tasks.delete-object/job-def)
+    :demo-purge            (ig/ref :app.tasks.demo-purge/job-def)
+    :run-webhook           (ig/ref ::webhooks/run-webhook-job-def)
+    :process-webhook-event (ig/ref ::webhooks/process-webhook-event-job-def)
+    :file-gc               (ig/ref :app.tasks.file-gc/job-def)
+    :offload-file-data     (ig/ref :app.tasks.offload-file-data/job-def)
+    :objects-gc            (ig/ref :app.tasks.objects-gc/job-def)
+    :export-binfile        (ig/ref :app.tasks.export-binfile/job-def)
+    :import-binfile        (ig/ref :app.tasks.import-binfile/job-def)
+    :storage-gc-deleted    (ig/ref ::sto.gc-deleted/job-def)
+    :storage-gc-touched    (ig/ref ::sto.gc-touched/job-def)
+    :storage-pending-gc    (ig/ref ::sto.pending-gc/job-def)
+    :jobs-gc               (ig/ref :app.jobs.gc/job-def)
+    :telemetry             (ig/ref :app.tasks.telemetry/job-def)
+    :session-gc            (ig/ref ::session/job-def)
+    :file-gc-scheduler     (ig/ref :app.tasks.file-gc-scheduler/job-def)
+    :audit-log-archive     (ig/ref :app.loggers.audit.archive-task/job-def)
+    :audit-log-gc          (ig/ref :app.loggers.audit.gc-task/job-def)}
+
+   ::jobs/request-pool
+   {::rds/client  (ig/ref ::rds/client)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.email/job-def
+   {::email/sendmail (ig/ref ::email/sendmail)
+    ::mtx/metrics   (ig/ref ::mtx/metrics)}
+
+   :app.tasks.delete-object/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::sto/storage (ig/ref ::sto/storage)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.tasks.demo-purge/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.loggers.webhooks/run-webhook-job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::http.client/client (ig/ref ::http.client/client)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.loggers.webhooks/process-webhook-event-job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::http.client/client (ig/ref ::http.client/client)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.tasks.file-gc/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::sto/storage (ig/ref ::sto/storage)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.tasks.offload-file-data/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::sto/storage (ig/ref ::sto/storage)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.tasks.objects-gc/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::sto/storage (ig/ref ::sto/storage)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.tasks.export-binfile/job-def
+   {::db/pool      (ig/ref ::db/pool)
+    ::sto/storage  (ig/ref ::sto/storage)
+    ::mtx/metrics  (ig/ref ::mtx/metrics)
+    ;; the job belongs to a profile, so its events are published
+    ::mbus/msgbus  (ig/ref ::mbus/msgbus)}
+
+   :app.tasks.import-binfile/job-def
+   {::db/pool      (ig/ref ::db/pool)
+    ::sto/storage  (ig/ref ::sto/storage)
+    ::mtx/metrics  (ig/ref ::mtx/metrics)
+    ::mbus/msgbus  (ig/ref ::mbus/msgbus)}
+
+   :app.storage.gc-deleted/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::sto/storage (ig/ref ::sto/storage)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.storage.gc-touched/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.storage.pending-gc/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::sto/storage (ig/ref ::sto/storage)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.jobs.gc/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.tasks.telemetry/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::http.client/client (ig/ref ::http.client/client)
+    ::setup/props (ig/ref ::setup/props)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   ::session/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.tasks.file-gc-scheduler/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   :app.loggers.audit.archive-task/job-def
+   {::db/pool          (ig/ref ::db/pool)
+    ::http.client/client (ig/ref ::http.client/client)
+    ::setup/shared-keys (ig/ref ::setup/shared-keys)
+    ::mtx/metrics      (ig/ref ::mtx/metrics)}
+
+   :app.loggers.audit.gc-task/job-def
+   {::db/pool     (ig/ref ::db/pool)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   ::email/blacklist
+   {}
+
+   ::email/whitelist
+   {}
+
+   ::email/sendmail
+   {::email/host             (cf/get :smtp-host)
+    ::email/port             (cf/get :smtp-port)
+    ::email/ssl              (cf/get :smtp-ssl)
+    ::email/tls              (cf/get :smtp-tls)
+    ::email/username         (cf/get :smtp-username)
+    ::email/password         (cf/get :smtp-password)
+    ::email/default-reply-to (cf/get :smtp-default-reply-to)
+    ::email/default-from     (cf/get :smtp-default-from)}
+
+
+   ::srepl/urepl
+   {:port (cf/get :urepl-port 6062)
+    :host (cf/get :urepl-host "localhost")}
+
+   ::srepl/prepl
+   {:port (cf/get :prepl-port 6063)
+    :host (cf/get :prepl-host "localhost")}
+
+   ::srepl/nrepl
+   {:port (cf/get :nrepl-port 6064)
+    :host (cf/get :nrepl-host "localhost")}
+
+   ::setup/templates {}
+
+   ::setup/props
+   {::db/pool    (ig/ref ::db/pool)
+    ::setup/key  (cf/get :secret-key)
+
+    ;; NOTE: this dependency is only necessary for proper initialization ordering, props
+    ;; module requires the migrations to run before initialize.
+    ::migrations (ig/ref :app.migrations/migrations)}
+
+   ::setup/shared-keys
+   {::setup/props    (ig/ref ::setup/props)
+    :nexus           (cf/get :nexus-shared-key)
+    :admin-console   (cf/get :admin-console-shared-key)
+    :exporter        (cf/get :exporter-shared-key)
+    :media-processor (cf/get :media-processor-shared-key)}
+
+   ::setup/clock
+   {}
+
+   :app.loggers.mattermost/reporter
+   {::http.client/client (ig/ref ::http.client/client)}
+
+   :app.loggers.database/reporter
+   {::db/pool (ig/ref ::db/pool)}
+
+   ::sto/storage
+   {::db/pool      (ig/ref ::db/pool)
+    ::mtx/metrics  (ig/ref ::mtx/metrics)
+    ::sto/backends
+    {:s3 (ig/ref :app.storage.s3/backend)
+     :fs (ig/ref :app.storage.fs/backend)
+
+     ;; LEGACY (should not be removed, can only be removed after an
+     ;; explicit migration because the database objects/rows will
+     ;; still reference the old names).
+     :assets-s3 (ig/ref :app.storage.s3/backend)
+     :assets-fs (ig/ref :app.storage.fs/backend)}}
+
+   :app.storage.s3/backend
+   {::sto.s3/region     (or (cf/get :storage-assets-s3-region)
+                            (cf/get :objects-storage-s3-region))
+    ::sto.s3/endpoint   (or (cf/get :storage-assets-s3-endpoint)
+                            (cf/get :objects-storage-s3-endpoint))
+    ::sto.s3/bucket     (or (cf/get :storage-assets-s3-bucket)
+                            (cf/get :objects-storage-s3-bucket))
+    ::sto.s3/io-threads (or (cf/get :storage-assets-s3-io-threads)
+                            (cf/get :objects-storage-s3-io-threads))
+    ::mtx/metrics       (ig/ref ::mtx/metrics)
+
+    ::wrk/netty-io-executor
+    (ig/ref ::wrk/netty-io-executor)}
+
+   :app.storage.fs/backend
+   {::sto.fs/directory (or (cf/get :storage-assets-fs-directory)
+                           (cf/get :objects-storage-fs-directory))}})
+
+(def worker-config
+  {::wrk/cron
+   {::jobs/defs               (ig/ref ::jobs/defs)
+    ::db/pool                 (ig/ref ::db/pool)
+    ::mtx/metrics             (ig/ref ::mtx/metrics)
+    ::wrk/entries
+    [{:cron #penpot/cron "0 0 0 * * ?" ;; daily
+      :job :session-gc}
+
+     {:cron #penpot/cron "0 0 0 * * ?" ;; daily
+      :job :objects-gc}
+
+     {:cron #penpot/cron "0 0 0 * * ?" ;; daily
+      :job :storage-gc-deleted}
+
+     {:cron #penpot/cron "0 0 0 * * ?" ;; daily
+      :job :storage-gc-touched}
+
+     {:cron #penpot/cron "0 0 0 * * ?" ;; daily
+      :job :storage-pending-gc}
+
+     {:cron #penpot/cron "0 0 0 * * ?" ;; daily
+      :job :jobs-gc}
+
+     {:cron #penpot/cron "0 0 2 * * ?" ;; daily
+      :job :file-gc-scheduler}
+
+     {:cron #penpot/cron "0 30 */3,23 * * ?"
+      :job :telemetry}
+
+     (when (or (contains? cf/flags :nexus)
+               (contains? cf/flags :admin-console))
+       {:cron #penpot/cron "0 */5 * * * ?" ;; every 5m
+        :job :audit-log-archive})
+
+     (when (or (contains? cf/flags :nexus)
+               (contains? cf/flags :admin-console))
+       {:cron #penpot/cron "30 */5 * * * ?" ;; every 5m
+        :job :audit-log-gc})]}
+
+   ::wrk/dispatcher
+   {::rds/client  (ig/ref ::rds/client)
+    ::mtx/metrics (ig/ref ::mtx/metrics)
+    ::db/pool     (ig/ref ::db/pool)
+    ::wrk/tenant  (cf/get :tenant)}
+
+   ::jobs-metrics/sampler
+   {::db/pool     (ig/ref ::db/pool)
+    ::mtx/metrics (ig/ref ::mtx/metrics)}
+
+   [::default ::wrk/runner]
+   {::wrk/parallelism (cf/get :worker-default-parallelism 1)
+    ::wrk/queue       :default
+    ::wrk/tenant      (cf/get :tenant)
+    ::rds/client      (ig/ref ::rds/client)
+    ::jobs/defs       (ig/ref ::jobs/defs)
+    ::mtx/metrics     (ig/ref ::mtx/metrics)
+    ::db/pool         (ig/ref ::db/pool)
+    ::mbus/msgbus     (ig/ref ::mbus/msgbus)}
+
+   [::webhook ::wrk/runner]
+   {::wrk/parallelism (cf/get :worker-webhook-parallelism 1)
+    ::wrk/queue       :webhooks
+    ::wrk/tenant      (cf/get :tenant)
+    ::rds/client      (ig/ref ::rds/client)
+    ::jobs/defs       (ig/ref ::jobs/defs)
+    ::mtx/metrics     (ig/ref ::mtx/metrics)
+    ::db/pool         (ig/ref ::db/pool)
+    ::mbus/msgbus     (ig/ref ::mbus/msgbus)}
+
+   ;; the heavy work of a user job does not share the default runner
+   [::binfile ::wrk/runner]
+   {::wrk/parallelism (cf/get :worker-binfile-parallelism 1)
+    ::wrk/queue       :binfile
+    ::wrk/tenant      (cf/get :tenant)
+    ::rds/client      (ig/ref ::rds/client)
+    ::jobs/defs       (ig/ref ::jobs/defs)
+    ::mtx/metrics     (ig/ref ::mtx/metrics)
+    ::db/pool         (ig/ref ::db/pool)
+    ::mbus/msgbus     (ig/ref ::mbus/msgbus)}
+
+   [::cron ::wrk/runner]
+   {::wrk/parallelism (cf/get :worker-cron-parallelism 2)
+    ::wrk/queue       :cron
+    ::wrk/tenant      (cf/get :tenant)
+    ::rds/client      (ig/ref ::rds/client)
+    ::jobs/defs       (ig/ref ::jobs/defs)
+    ::mtx/metrics     (ig/ref ::mtx/metrics)
+    ::db/pool         (ig/ref ::db/pool)
+    ::mbus/msgbus     (ig/ref ::mbus/msgbus)}})
+
+
+(defn start
+  []
+  (cf/validate!)
+  (ig/load-namespaces (merge system-config worker-config))
+  (alter-var-root #'app.system/system
+                  (fn [sys]
+                    (some-> sys not-empty ig/halt!)
+                    (-> system-config
+                        (cond-> (contains? cf/flags :backend-worker)
+                          (merge worker-config))
+                        (ig/expand)
+                        (ig/init))))
+
+  (l/inf :hint "welcome to penpot"
+         :flags (str/join "," (map name cf/flags))
+         :worker? (contains? cf/flags :backend-worker)
+         :version (:full cf/version))
+  :start)
+
+(defn resume
+  []
+  (cf/validate!)
+  (ig/load-namespaces (merge system-config worker-config))
+  (alter-var-root #'app.system/system
+                  (fn [sys]
+                    (let [config (-> system-config
+                                     (cond-> (contains? cf/flags :backend-worker)
+                                       (merge worker-config))
+                                     (ig/expand))]
+                      (if-let [sys (not-empty sys)]
+                        (ig/resume config sys)
+                        (ig/init config)))))
+  :resume)
+
+(defn start-custom
+  [config]
+  (ig/load-namespaces config)
+  (alter-var-root #'app.system/system
+                  (fn [sys]
+                    (some-> sys not-empty ig/halt!)
+                    (-> config
+                        (ig/expand)
+                        (ig/init)))))
+
+(defn stop
+  []
+  (alter-var-root #'app.system/system
+                  (fn [sys]
+                    (some-> sys not-empty ig/halt!)
+                    {}))
+  :stop)
+
+(defn suspend
+  []
+  (alter-var-root #'app.system/system
+                  (fn [sys]
+                    (some-> sys not-empty ig/suspend!)
+                    sys))
+  :suspend)
+
+(defn restart
+  []
+  (suspend)
+  (repl/refresh :after 'app.main/resume))
+
+(defn restart-all
+  []
+  (stop)
+  (repl/refresh-all :after 'app.main/start))
+
+(defmacro run-bench
+  [& exprs]
+  `(do
+     (require 'criterium.core)
+     (criterium.core/with-progress-reporting (crit/quick-bench (do ~@exprs) :verbose))))
+
+(defn run-tests
+  ([] (run-tests #"^backend-tests.*-test$"))
+  ([o]
+   (repl/refresh)
+   (cond
+     (instance? java.util.regex.Pattern o)
+     (test/run-all-tests o)
+
+     (symbol? o)
+     (if-let [sns (namespace o)]
+       (do (require (symbol sns))
+           (test/test-vars [(resolve o)]))
+       (test/test-ns o)))))
+
+(defn -main
+  [& _args]
+  (try
+    (ex/ignoring
+     (repl/disable-reload! (find-ns 'integrant.core))
+     (repl/disable-reload! (find-ns 'app.system))
+     (repl/disable-reload! (find-ns 'app.common.debug)))
+
+    (let [p (promise)]
+      (start)
+      (deref p))
+    (catch Throwable cause
+      (ex/print-throwable cause)
+      (px/sleep 500)
+      (System/exit -1))))

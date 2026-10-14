@@ -1,0 +1,16 @@
+# Keep LF in the working tree on every OS. The Penpot devenv runs shell
+# scripts from this checkout inside a Linux container, and CRLF breaks them.
+* text=auto eol=lf
+
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.wasm binary
+*.zip binary
+*.penpot binary

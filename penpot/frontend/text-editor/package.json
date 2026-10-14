@@ -1,0 +1,32 @@
+{
+  "name": "@penpot/text-editor",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/editor/TextEditor.js",
+  "scripts": {
+    "dev": "vite",
+    "coverage": "vitest run --coverage",
+    "wasm:update": "mkdir -p src/wasm && cp ../resources/public/js/render-wasm.wasm ./src/wasm/render-wasm.wasm && cp ../resources/public/js/render-wasm.js ./src/wasm/render-wasm.js",
+    "test": "vitest --run",
+    "fmt:js": "pnpx prettier -c src/**/*.js",
+    "test:watch": "vitest",
+    "test:watch:ui": "vitest --ui",
+    "test:watch:e2e": "vitest --browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^26.6.3",
+    "@vitest/browser": "^5.0.2",
+    "@vitest/coverage-v8": "^5.0.2",
+    "@vitest/ui": "^5.0.2",
+    "canvas": "^3.2.3",
+    "esbuild": "^0.28.0",
+    "jsdom": "^30.0.1",
+    "playwright": "1.63.0",
+    "prettier": "^3.9.6",
+    "vite": "^8.2.0",
+    "vitest": "^5.0.2"
+  },
+  "packageManager": "pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45"
+}

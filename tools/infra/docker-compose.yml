@@ -1,0 +1,54 @@
+# Proto Care — minimal infra to run the Penpot backend tests from the host.
+#
+# Same images and init SQL as the Penpot devenv, but with PostgreSQL and
+# Valkey published on localhost so the JVM test runner on Windows can reach
+# them. Independent from the devenv compose projects (own project name and
+# volumes), so both can coexist.
+#
+#   docker compose -p protocare-infra -f tools/infra/docker-compose.yml up -d --wait
+#   docker compose -p protocare-infra -f tools/infra/docker-compose.yml down
+
+name: protocare-infra
+
+volumes:
+  postgres_data:
+    name: protocare_postgres_data
+  valkey_data:
+    name: protocare_valkey_data
+
+services:
+  postgres:
+    image: postgres:18.6
+    command: postgres -c config_file=/etc/postgresql.conf
+    restart: unless-stopped
+    stop_signal: SIGINT
+    environment:
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - POSTGRES_DB=penpot
+      - POSTGRES_USER=penpot
+      - POSTGRES_PASSWORD=penpot
+    volumes:
+      - ../../penpot/docker/devenv/files/postgresql.conf:/etc/postgresql.conf
+      - ../../penpot/docker/devenv/files/postgresql_init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  valkey:
+    image: valkey/valkey:8.1
+    restart: unless-stopped
+    command: valkey-server --save 120 1 --loglevel warning
+    volumes:
+      - valkey_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

@@ -1,0 +1,24 @@
+{
+  "name": "plugin-api-test-suite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --emptyOutDir && pnpm run build:headless && pnpm run build:tests",
+    "build:headless": "vite build --config vite.config.headless.ts",
+    "build:tests": "vite build --config vite.config.tests.ts",
+    "watch": "concurrently --kill-others --names app,tests \"vite build --watch --mode development\" \"vite build --watch --mode development --config vite.config.tests.ts\"",
+    "serve": "vite preview",
+    "init": "concurrently --kill-others --names build,serve \"pnpm run watch\" \"pnpm run serve\"",
+    "lint": "eslint .",
+    "gen:api": "tsx tools/gen-api-surface.ts",
+    "test:ci": "pnpm run build:headless && tsx ci/run-ci.ts",
+    "test:ci:mocked": "pnpm run build:headless && MOCK_BACKEND=1 tsx ci/run-ci.ts",
+    "test:unit": "tsx --test ci/static-server.test.ts"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  },
+  "packageManager": "pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45"
+}

@@ -1,0 +1,153 @@
+// Proto Care — Governance Engine
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+@use "ds/typography.scss" as *;
+@use "ds/_sizes.scss" as *;
+@use "ds/_borders.scss" as *;
+
+.governance-panel {
+  display: grid;
+  grid-template-rows: auto auto auto auto 1fr;
+  block-size: 100%;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-s);
+  padding: var(--sp-m);
+}
+
+.saved-note {
+  @include use-typography("body-small");
+  margin: 0;
+  color: var(--color-foreground-secondary);
+}
+
+.summary {
+  @include use-typography("body-small");
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-m);
+  padding: 0 var(--sp-m) var(--sp-s);
+  color: var(--color-foreground-secondary);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-s);
+  padding: 0 var(--sp-m) var(--sp-m);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-s);
+  padding: 0 var(--sp-m) var(--sp-m);
+  overflow-y: auto;
+}
+
+.result-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+  padding: var(--sp-m);
+  border: $b-1 solid var(--color-background-quaternary);
+  border-radius: $br-8;
+  background: var(--color-background-tertiary);
+}
+
+.result-closed {
+  opacity: 0.6;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-s);
+}
+
+.severity-pill,
+.status-pill {
+  @include use-typography("body-small");
+  padding: 0 var(--sp-s);
+  border-radius: $br-4;
+  background: var(--color-background-quaternary);
+  color: var(--color-foreground-primary);
+  text-transform: uppercase;
+}
+
+.severity-critical,
+.severity-high {
+  background: var(--color-background-error);
+  color: var(--color-foreground-error);
+}
+
+.severity-medium {
+  background: var(--color-background-warning);
+  color: var(--color-accent-warning);
+}
+
+.severity-low,
+.severity-info {
+  background: var(--color-background-info);
+  color: var(--color-accent-info);
+}
+
+.rule-title {
+  @include use-typography("headline-small");
+  color: var(--color-foreground-primary);
+}
+
+.result-location {
+  @include use-typography("body-small");
+  color: var(--color-foreground-secondary);
+}
+
+.node-name {
+  color: var(--color-foreground-primary);
+}
+
+.result-message,
+.result-recommendation {
+  @include use-typography("body-small");
+  margin: 0;
+  color: var(--color-foreground-primary);
+}
+
+.result-recommendation {
+  color: var(--color-foreground-secondary);
+}
+
+.result-values {
+  @include use-typography("body-small");
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-xxs) var(--sp-s);
+  margin: 0;
+
+  dt {
+    color: var(--color-foreground-secondary);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--color-foreground-primary);
+  }
+}
+
+.expected-value {
+  color: var(--color-token-foreground);
+}
+
+.result-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  margin-block-start: var(--sp-xs);
+}
