@@ -5126,3 +5126,22 @@ msgstr "Este elemento não existe mais na página"
 
 msgid "workspace.governance.inspect.literal"
 msgstr "Valor literal, sem token aplicado"
+
+#: src/app/main/ui/dashboard/design_system_callout.cljs
+msgid "dashboard.protocare-ds.title"
+msgstr "Proto Care DS"
+
+msgid "dashboard.protocare-ds.description"
+msgstr "Design system de exemplo para testar a governança: tokens com temas claro e escuro, componentes e uma tela de teste com erros intencionais. Ele é adicionado aos Rascunhos e publicado como biblioteca compartilhada."
+
+msgid "dashboard.protocare-ds.add"
+msgstr "Adicionar ao time"
+
+msgid "dashboard.protocare-ds.installing"
+msgstr "Adicionando…"
+
+msgid "dashboard.protocare-ds.installed"
+msgstr "Proto Care DS adicionado como biblioteca compartilhada"
+
+msgid "dashboard.protocare-ds.error"
+msgstr "Não foi possível adicionar o Proto Care DS"

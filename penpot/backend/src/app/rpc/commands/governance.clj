@@ -26,11 +26,13 @@
    [app.loggers.audit :as-alias audit]
    [app.rpc :as-alias rpc]
    [app.rpc.commands.files :as files]
+   [app.rpc.commands.management :as mgmt]
    [app.rpc.commands.teams :as teams]
    [app.rpc.doc :as-alias doc]
    [app.rpc.helpers :as rph]
    [app.rpc.permissions :as perms]
-   [app.util.services :as sv]))
+   [app.util.services :as sv]
+   [clojure.java.io :as io]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ROLES AND PERMISSIONS
@@ -548,3 +550,80 @@
         (assoc :team-id team-id
                :projects projects
                :recent (recent-audits conn "team_id" team-id 30)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; BUNDLED DESIGN SYSTEM
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def design-system-name
+  "Name of the file the bundled design system is imported as."
+  "Proto Care DS")
+
+(def ^:private design-system-resource
+  "app/onboarding/protocare-ds.penpot")
+
+(def ^:private sql:team-design-system
+  "SELECT f.id, f.is_shared
+     FROM file AS f
+     JOIN project AS p ON (p.id = f.project_id)
+    WHERE p.team_id = ?
+      AND f.name = ?
+      AND f.deleted_at IS NULL
+      AND p.deleted_at IS NULL
+    ORDER BY f.is_shared DESC, f.created_at ASC
+    LIMIT 1")
+
+(def ^:private sql:team-default-project
+  "SELECT id FROM project
+    WHERE team_id = ?
+      AND is_default IS TRUE
+      AND deleted_at IS NULL
+    LIMIT 1")
+
+(defn- mark-shared!
+  [pool file-id]
+  (db/update! pool :file
+              {:is-shared true :modified-at (ct/now)}
+              {:id file-id}
+              {::db/return-keys false}))
+
+(def ^:private schema:install-design-system
+  [:map {:title "install-design-system"}
+   [:team-id ::sm/uuid]])
+
+(sv/defmethod ::install-design-system
+  "Install the bundled Proto Care DS in a team, in its default project,
+   and publish it as a shared library. Idempotent: when the team already
+   has it, it only makes sure it is shared. Requires team edition."
+  {::doc/added "2.17"
+   ::doc/module :governance
+   ::sm/params schema:install-design-system}
+  [{:keys [::db/pool] :as cfg} {:keys [::rpc/profile-id team-id] :as params}]
+  (teams/check-edition-permissions! pool profile-id team-id)
+  (if-let [existing (db/exec-one! pool [sql:team-design-system team-id design-system-name])]
+    (do
+      (when-not (:is-shared existing)
+        (mark-shared! pool (:id existing)))
+      {:file-id (:id existing) :created false})
+
+    (let [project-id (:id (db/exec-one! pool [sql:team-default-project team-id]))
+          _          (when-not project-id
+                       (ex/raise :type :not-found
+                                 :code :object-not-found
+                                 :hint "team has no default project"))
+          resource   (io/resource design-system-resource)
+          _          (when-not resource
+                       (ex/raise :type :internal
+                                 :code :design-system-not-bundled
+                                 :hint "the bundled design system file is missing"))
+          result     (with-open [input (io/input-stream resource)]
+                       (mgmt/clone-template cfg
+                                            (assoc params
+                                                   :project-id project-id
+                                                   :profile-id profile-id)
+                                            input))
+          file-ids   (if (map? result) (:file-ids result) result)
+          file-id    (first file-ids)]
+      (mark-shared! pool file-id)
+      (rph/with-meta {:file-id file-id :created true}
+        {::audit/props {:team-id team-id :file-id file-id}}))))

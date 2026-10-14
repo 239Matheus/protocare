@@ -56,14 +56,18 @@ O app está pronto quando o backend logar `welcome to penpot` e o frontend `[:ma
 
 ## Testar o fluxo de governança
 
-1. Abra `http://localhost:3450`, clique em **Criar uma conta** e depois em **Criar conta de demonstração**.
-2. No dashboard, em "Bibliotecas e Modelos", clique em **Proto Care Design System** (primeiro card) e confirme. Abra o arquivo "Proto Care DS".
+1. Abra `http://localhost:3450` e crie uma conta (ou use **Criar conta de demonstração**). No devenv a verificação de e-mail fica desligada, então a conta entra direto.
+2. No dashboard, vá em **Bibliotecas** e clique em **Adicionar ao time** no destaque do Proto Care DS. Ele é importado para Rascunhos e publicado como biblioteca compartilhada. (Também dá para usar o card **Proto Care Design System** em "Bibliotecas e Modelos", na tela de Projetos.) Abra o arquivo "Proto Care DS".
 3. Vá para a página **Tela de teste**. Na barra flutuante, clique em **Auditoria** e depois em **Executar auditoria**. Aparecem 5 problemas, 4 corrigíveis.
 4. Em cada card: o ícone de mira (**Ir para o elemento**) seleciona e centraliza; **Corrigir** abre a confirmação e aplica o token sugerido. `Ctrl+Z` desfaz.
 5. Aguarde alguns segundos (salvamento automático) e clique em **Executar auditoria** de novo: sobra só o texto com `#333333`, uma cor que não existe no DS.
 6. No modo **Inspecionar**, cores literais mostram "Valor literal, sem token aplicado".
 
 Para testar num arquivo seu, importe `penpot/protocare/design-system/tokens.json` na aba TOKENS e desenhe usando cores literais e tokens.
+
+## E-mails no devenv
+
+O devenv não envia e-mails reais. Tudo cai no Mailpit, em `http://localhost:1080`. O `tools\devenv.ps1` cria `penpot/backend/scripts/_env.local` (ignorado pelo git) com `disable-email-verification`, para contas locais entrarem sem confirmar e-mail. Contas criadas antes disso podem ser confirmadas pelo link no Mailpit.
 
 ## Desenvolvendo no Windows
 

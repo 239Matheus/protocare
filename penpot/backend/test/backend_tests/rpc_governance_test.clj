@@ -231,3 +231,44 @@
                               :rules {"token/color" {:severity :critical}}})]
         (t/is (nil? (:error out)))
         (t/is (= :critical (get-in out [:result :rules "token/color" :severity])))))))
+
+(t/deftest install-design-system-is-idempotent
+  (let [owner   (th/create-profile* 1 {:is-active true})
+        member  (th/create-profile* 2 {:is-active true})
+        team-id (:default-team-id owner)
+        _       (th/create-team-role* {:team-id team-id
+                                       :profile-id (:id member)
+                                       :role :viewer})
+        out1    (th/command! {::th/type :install-design-system
+                              ::rpc/profile-id (:id owner)
+                              :team-id team-id})
+        file-id (get-in out1 [:result :file-id])]
+
+    (t/testing "first call imports the DS as a shared library"
+      (t/is (nil? (:error out1)))
+      (t/is (true? (get-in out1 [:result :created])))
+      (let [file (th/db-get :file {:id file-id})]
+        (t/is (= "Proto Care DS" (:name file)))
+        (t/is (true? (:is-shared file)))))
+
+    (t/testing "second call reuses it"
+      (let [out2 (th/command! {::th/type :install-design-system
+                               ::rpc/profile-id (:id owner)
+                               :team-id team-id})]
+        (t/is (nil? (:error out2)))
+        (t/is (false? (get-in out2 [:result :created])))
+        (t/is (= file-id (get-in out2 [:result :file-id])))))
+
+    (t/testing "the imported file audits to the five intentional findings"
+      (let [out (th/command! {::th/type :run-audit
+                              ::rpc/profile-id (:id owner)
+                              :file-id file-id})]
+        (t/is (nil? (:error out)))
+        (t/is (= 5 (get-in out [:result :summary :total])))
+        (t/is (= 4 (get-in out [:result :summary :fixable])))))
+
+    (t/testing "a viewer cannot install it"
+      (let [out (th/command! {::th/type :install-design-system
+                              ::rpc/profile-id (:id member)
+                              :team-id team-id})]
+        (t/is (th/ex-of-type? (:error out) :not-found))))))

@@ -1,7 +1,10 @@
 # Proto Care DS
 
 Design system de exemplo que vem dentro do Proto Care para testar a governança.
-Aparece como primeiro modelo em **Bibliotecas e Modelos** no dashboard ("Proto Care Design System").
+Duas formas de colocar no time:
+
+- Tela **Bibliotecas** do dashboard: botão **Adicionar ao time** (comando `install-design-system`). Importa para Rascunhos e publica como biblioteca compartilhada; se já existir, só garante que está compartilhado.
+- Card **Proto Care Design System** em "Bibliotecas e Modelos" (tela de Projetos): importa como arquivo comum.
 
 ## O que tem
 

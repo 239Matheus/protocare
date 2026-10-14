@@ -30,6 +30,19 @@ if (-not (Test-Path $ConfigJs)) {
     Set-Content -Path $ConfigJs -Encoding ascii -Value 'var penpotFlags = "enable-governance enable-demo-users disable-onboarding disable-onboarding-questions disable-onboarding-newsletter";'
 }
 
+# Local accounts: skip email verification (the devenv delivers mail to
+# Mailpit at http://localhost:1080, never to real inboxes).
+$EnvLocal = Join-Path $Root "penpot\backend\scripts\_env.local"
+if (-not (Test-Path $EnvLocal)) {
+    $lines = @(
+        '# Local-only overrides for the devenv backend (gitignored).',
+        '# Proto Care: skip email verification so local accounts work without',
+        '# opening Mailpit (http://localhost:1080).',
+        'export PENPOT_FLAGS="$PENPOT_FLAGS disable-email-verification"'
+    )
+    [System.IO.File]::WriteAllText($EnvLocal, (($lines -join "`n") + "`n"))
+}
+
 function Invoke-Manage([string]$ManageArgs) {
     Push-Location (Join-Path $Root "penpot")
     try {

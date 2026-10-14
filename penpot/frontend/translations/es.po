@@ -9838,3 +9838,22 @@ msgstr "Pruebas de usabilidad"
 
 msgid "workspace.governance.area.usability.desc"
 msgstr "Tareas y guiones sobre prototipos"
+
+#: src/app/main/ui/dashboard/design_system_callout.cljs
+msgid "dashboard.protocare-ds.title"
+msgstr "Proto Care DS"
+
+msgid "dashboard.protocare-ds.description"
+msgstr "Sistema de diseño de ejemplo para probar la gobernanza: tokens con temas claro y oscuro, componentes y una pantalla de prueba con errores intencionales. Se añade a Borradores y se publica como biblioteca compartida."
+
+msgid "dashboard.protocare-ds.add"
+msgstr "Añadir al equipo"
+
+msgid "dashboard.protocare-ds.installing"
+msgstr "Añadiendo…"
+
+msgid "dashboard.protocare-ds.installed"
+msgstr "Proto Care DS añadido como biblioteca compartida"
+
+msgid "dashboard.protocare-ds.error"
+msgstr "No se pudo añadir Proto Care DS"

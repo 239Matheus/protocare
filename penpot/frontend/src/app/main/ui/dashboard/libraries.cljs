@@ -7,11 +7,13 @@
 (ns app.main.ui.dashboard.libraries
   (:require-macros [app.main.style :as stl])
   (:require
+   [app.config :as cf]
    [app.main.data.dashboard :as dd]
    [app.main.data.dashboard.shortcuts :as sc]
    [app.main.data.team :as dtm]
    [app.main.refs :as refs]
    [app.main.store :as st]
+   [app.main.ui.dashboard.design-system-callout :as dsc :refer [design-system-callout*]]
    [app.main.ui.dashboard.grid :refer [grid*]]
    [app.main.ui.hooks :as hooks]
    [app.util.dom :as dom]
@@ -72,6 +74,13 @@
 
      [:section {:class (stl/css :dashboard-container :no-bg :dashboard-shared)
                 :ref rowref}
+      ;; Proto Care: offer the bundled design system until the team has it
+      (when (and (contains? cf/flags :governance)
+                 can-edit
+                 (some? files)
+                 (not (dsc/installed? files)))
+        [:> design-system-callout* {:team-id team-id}])
+
       [:> grid* {:files files
                  :selected-files selected-files
                  :project default-project

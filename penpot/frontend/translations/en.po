@@ -9729,3 +9729,22 @@ msgstr "Usability testing"
 
 msgid "workspace.governance.area.usability.desc"
 msgstr "Tasks and scripts run on prototypes"
+
+#: src/app/main/ui/dashboard/design_system_callout.cljs
+msgid "dashboard.protocare-ds.title"
+msgstr "Proto Care DS"
+
+msgid "dashboard.protocare-ds.description"
+msgstr "Sample design system to test governance: tokens with light and dark themes, components and a test screen with intentional errors. It is added to Drafts and published as a shared library."
+
+msgid "dashboard.protocare-ds.add"
+msgstr "Add to team"
+
+msgid "dashboard.protocare-ds.installing"
+msgstr "Adding…"
+
+msgid "dashboard.protocare-ds.installed"
+msgstr "Proto Care DS added as a shared library"
+
+msgid "dashboard.protocare-ds.error"
+msgstr "Proto Care DS could not be added"
