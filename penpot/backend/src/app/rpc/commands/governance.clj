@@ -77,6 +77,24 @@
 (def check-health-permissions!
   (perms/make-check-fn can-view-health?))
 
+(def ^:private schema:get-governance-permissions
+  [:map {:title "get-governance-permissions"}
+   [:team-id ::sm/uuid]])
+
+(sv/defmethod ::get-governance-permissions
+  "Governance role and flags of the current profile in a team, so the UI
+   can show the design health dashboard and the policy settings only to
+   who can use them. Any team member."
+  {::doc/added "2.17"
+   ::doc/module :governance
+   ::sm/params schema:get-governance-permissions
+   ::db/transaction true}
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id]}]
+  (teams/check-read-permissions! conn profile-id team-id)
+  (-> (get-governance-permissions conn profile-id team-id)
+      (select-keys [:governance-role :can-manage-policy :can-view-health :is-admin :is-owner])
+      (assoc :team-id team-id)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; EVIDENCE EVENTS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -569,7 +587,8 @@
 (def ^:private sql:latest-audits-by-team
   "SELECT DISTINCT ON (a.file_id)
           a.id, a.file_id, a.project_id, a.team_id, a.created_at,
-          a.summary, f.name AS file_name, p.name AS project_name
+          a.summary, f.name AS file_name, p.name AS project_name,
+          p.is_default AS project_is_default
      FROM governance_audit AS a
      JOIN file AS f ON (f.id = a.file_id)
      JOIN project AS p ON (p.id = a.project_id)
@@ -665,7 +684,8 @@
                               (-> (health-from conn rows)
                                   (dissoc :files)
                                   (assoc :project-id project-id
-                                         :project-name (:project-name (first rows)))))))]
+                                         :project-name (:project-name (first rows))
+                                         :is-default (boolean (:project-is-default (first rows))))))))]
     (-> (health-from conn audits)
         (assoc :team-id team-id
                :projects projects
@@ -772,12 +792,22 @@
       AND f.deleted_at IS NULL
     ORDER BY a.file_id, a.created_at DESC")
 
-(def ^:private sql:open-by-category
-  "SELECT category, count(*) AS total
+(def ^:private sql:open-by-rule
+  "SELECT rule_id, category, severity, count(*) AS total
      FROM governance_audit_result
     WHERE audit_id = ANY(?)
       AND status = 'open'
-    GROUP BY category")
+    GROUP BY rule_id, category, severity")
+
+(def ^:private sql:resolution-by-rule
+  "SELECT rule_id, area, type, props->>'to' AS to_status, count(*) AS total
+     FROM governance_event
+    WHERE team_id = ?
+      AND created_at >= ?
+      AND (?::uuid IS NULL OR project_id = ?)
+      AND type IN ('finding-resolved', 'result-status')
+      AND rule_id IS NOT NULL
+    GROUP BY rule_id, area, type, props->>'to'")
 
 (defn- ratio
   [n d]
@@ -808,6 +838,38 @@
                           :median-resolve-seconds (some-> (:median-open-seconds resolved) double)}])))
           area-ids)))
 
+(defn- rule-metrics
+  "{rule-id {:area :open :resolved :fixed-in-panel :ignored :reopened
+   :ignore-rate}}: what each rule finds and what people do with it. A
+   high ignore rate is the signal that a rule needs calibration."
+  [open resolution]
+  (let [open-by  (reduce (fn [acc {:keys [rule-id category total]}]
+                           (-> acc
+                               (update-in [rule-id :open] (fnil + 0) total)
+                               (assoc-in [rule-id :area] (area-name category))))
+                         {} open)
+        count-of (fn [rule-id type to]
+                   (reduce + 0 (keep #(when (and (= rule-id (:rule-id %))
+                                                 (= type (:type %))
+                                                 (or (nil? to) (= to (:to-status %))))
+                                        (:total %))
+                                     resolution)))
+        rule-ids (into (sorted-set) (concat (keys open-by) (keep :rule-id resolution)))]
+    (into {}
+          (map (fn [rule-id]
+                 (let [n-open    (get-in open-by [rule-id :open] 0)
+                       n-res     (count-of rule-id "finding-resolved" nil)
+                       n-ignored (count-of rule-id "result-status" "ignored")]
+                   [rule-id {:area (or (get-in open-by [rule-id :area])
+                                       (some #(when (= rule-id (:rule-id %)) (:area %)) resolution))
+                             :open n-open
+                             :resolved n-res
+                             :fixed-in-panel (count-of rule-id "result-status" "fixed")
+                             :ignored n-ignored
+                             :reopened (count-of rule-id "result-status" "open")
+                             :ignore-rate (ratio n-ignored (+ n-open n-res n-ignored))}])))
+          rule-ids)))
+
 (def ^:private schema:get-governance-metrics
   [:map {:title "get-governance-metrics"}
    [:team-id ::sm/uuid]
@@ -817,7 +879,8 @@
 (sv/defmethod ::get-governance-metrics
   "Evidence metrics of a team (or one of its projects) over a period
    (default 90 days): per area, open findings, findings resolved, fix
-   rate and median time to resolve; per week, audits, findings and
+   rate and median time to resolve; per rule, the same plus ignore rate;
+   open findings per severity; per week, audits, findings and
    resolutions. Aggregated only: no per-person numbers. Team
    owners/admins, `design-ops` and `ds-admin` roles."
   {::doc/added "2.17"
@@ -831,8 +894,10 @@
         resolution (db/exec! conn [sql:resolution-by-area team-id since project-id project-id])
         audit-ids  (mapv :id (db/exec! conn [sql:latest-audit-ids team-id project-id project-id]))
         open       (if (seq audit-ids)
-                     (db/exec! conn [sql:open-by-category (db/create-array conn "uuid" audit-ids)])
+                     (db/exec! conn [sql:open-by-rule (db/create-array conn "uuid" audit-ids)])
                      [])
+        by-rule    (rule-metrics open (db/exec! conn [sql:resolution-by-rule team-id since
+                                                      project-id project-id]))
         open-area  (reduce (fn [acc {:keys [category total]}]
                              (update acc (or (area-name category) "other") (fnil + 0) total))
                            {} open)
@@ -849,6 +914,10 @@
      :resolved n-res
      :fix-rate (ratio n-res (+ n-res n-open))
      :by-area by-area
+     :by-severity (reduce (fn [acc {:keys [severity total]}]
+                            (update acc severity (fnil + 0) total))
+                          {} open)
+     :by-rule by-rule
      :weekly (mapv #(select-keys % [:week :audits :files :findings :resolved]) weekly)}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

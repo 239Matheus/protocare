@@ -127,11 +127,14 @@ Plano original:
 - Proto Care DS regenerado: páginas sem ruído e Tela de teste com 20 erros intencionais nas cinco áreas (9 corrigíveis), mais a tela "Recuperar senha".
 - Evidências (backend): migração `0158` (`governance_event`, `area` e `first_seen_at` nos achados), eventos em `run-audit`, `update-audit-result-status`, `update-governance-policy` e `install-design-system`, RPCs `get-governance-events` e `get-governance-metrics`. Plano em `docs/03-analytics-plan.md`.
 
-## Fase 5 — Dashboard do gestor
+## Fase 5 — Dashboard do gestor (concluída em 2026-10-14)
 
-- Rota no dashboard: Overview (projetos auditados, auditorias recentes, violações abertas/críticas, aderência, acessibilidade), Trends, Projects, Categories.
-- Sem ranking de pessoas.
-- Dados prontos: `get-team-health`, `get-project-health` e `get-governance-metrics`. Detalhes das visões em `docs/03-analytics-plan.md`, seção 4.
+- Página "Saúde do design" (`app.main.ui.dashboard.health`), rota `dashboard-health`, na seção "Governança" da sidebar do dashboard. Só aparece para quem pode ver a saúde agregada (RPC nova `get-governance-permissions`).
+- Abas: Visão geral (KPIs, abertos por área e por severidade, auditorias recentes), Tendências (resolvidos, achados por auditoria e auditorias por semana), Projetos (ou Arquivos, com um projeto selecionado), Áreas, Regras (com taxa de ignorados, para calibrar a política).
+- Filtros: projeto e período (30, 90, 180 dias).
+- `get-governance-metrics` ganhou `by-rule` e `by-severity`; `get-team-health` marca o projeto padrão (`is-default`) para exibir "Rascunhos".
+- Rótulos de área e severidade passaram para `governance_texts.cljs` (compartilhados com o painel de auditoria).
+- Sem ranking de pessoas. Validado no devenv.
 
 ## Fase 6 — Mais regras
 

@@ -19,6 +19,7 @@ Estado atual (governança ponta a ponta, com evidências):
 - Política por time (regras, severidade) e papéis `designer`, `design-ops`, `ds-admin`.
 - RPC de saúde agregada por projeto e por time (sem ranking de pessoas).
 - **Evidências**: trilha `governance_event` (auditorias, achados resolvidos com tempo aberto, mudanças de status, política, instalação do DS) e métricas por área e por semana. Plano completo em `docs/03-analytics-plan.md`.
+- Dashboard **Saúde do design** (sidebar do dashboard, seção Governança): visão geral, tendências semanais, projetos e arquivos, áreas e regras, com filtro de projeto e período. Visível para owner/admin, `design-ops` e `ds-admin`.
 
 ## Layout do repositório
 
@@ -67,7 +68,7 @@ O app está pronto quando o backend logar `welcome to penpot` e o frontend `[:ma
 3. Vá para a página **Tela de teste**. Na barra flutuante, clique em **Auditoria** e depois em **Executar auditoria**. Aparecem 20 problemas, 9 corrigíveis, distribuídos nas cinco áreas. Clique numa área para filtrar.
 4. Em cada card: o ícone de mira (**Ir para o elemento**) seleciona e centraliza; **Corrigir** abre a confirmação e aplica o token sugerido. `Ctrl+Z` desfaz.
 5. Aguarde alguns segundos (salvamento automático) e clique em **Executar auditoria** de novo: os corrigidos somem e o resumo mostra quantos foram resolvidos. Sobram os que pedem decisão de design (contraste, alinhamento, nomes, fluxo).
-6. Evidências: cada auditoria, correção e mudança de status vira um evento. Consulte com a RPC `get-governance-events` (por arquivo) ou `get-governance-metrics` (por time).
+6. Evidências: cada auditoria, correção e mudança de status vira um evento. No dashboard, abra **Saúde do design** na sidebar para ver as métricas do time. A trilha bruta sai pela RPC `get-governance-events`.
 7. No modo **Inspecionar**, cores literais mostram "Valor literal, sem token aplicado".
 
 Para testar num arquivo seu, importe `penpot/protocare/design-system/tokens.json` na aba TOKENS e desenhe usando cores literais e tokens.

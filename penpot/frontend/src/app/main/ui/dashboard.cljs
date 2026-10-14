@@ -27,6 +27,7 @@
    [app.main.ui.dashboard.deleted :refer [deleted-section*]]
    [app.main.ui.dashboard.files :refer [files-section*]]
    [app.main.ui.dashboard.fonts :refer [fonts-page* font-providers-page*]]
+   [app.main.ui.dashboard.health :refer [health-page*]]
    [app.main.ui.dashboard.import]
    [app.main.ui.dashboard.layout-toggle :as lt]
    [app.main.ui.dashboard.libraries :refer [libraries-page*]]
@@ -142,6 +143,9 @@
        :dashboard-libraries
        [:> libraries-page* {:team team
                             :default-project default-project}]
+
+       :dashboard-health
+       [:> health-page* {:team team}]
 
        :dashboard-members
        [:> team-members-page* {:team team :profile profile}]

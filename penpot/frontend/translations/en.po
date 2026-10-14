@@ -9934,6 +9934,234 @@ msgstr "\"%s\" is reached by navigation but has no way out."
 msgid "workspace.governance.rule.usability-dead-end.recommendation"
 msgstr "Add a back or next action so the test can continue."
 
+#: src/app/main/ui/dashboard/health.cljs
+msgid "title.dashboard.health"
+msgstr "Design health - %s - Penpot"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.section"
+msgstr "Governance"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.title"
+msgstr "Design health"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.subtitle"
+msgstr "How the audits are going: what is open, what was fixed and how fast."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.privacy"
+msgstr "Metrics are aggregated by team, project, file, area and rule. Proto Care does not rank people."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.period"
+msgstr "Last %s days"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.project.all"
+msgstr "All projects"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.overview"
+msgstr "Overview"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.trends"
+msgstr "Trends"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.projects"
+msgstr "Projects"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.files"
+msgstr "Files"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.areas"
+msgstr "Areas"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.rules"
+msgstr "Rules"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.files"
+msgstr "Files audited"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.open"
+msgstr "Open findings"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.urgent"
+msgstr "Critical and high"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.accessibility"
+msgstr "Open accessibility findings"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.adherence"
+msgstr "Token adherence"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.fix-rate"
+msgstr "Fix rate"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.fix-rate.hint"
+msgstr "Resolved ÷ (resolved + open)"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.resolved"
+msgstr "Resolved in the period"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.kpi.audits"
+msgstr "Audits in the period"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.open-by-area"
+msgstr "Open findings by area"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.open-by-severity"
+msgstr "Open findings by severity"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.recent"
+msgstr "Recent audits"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.recent.findings"
+msgstr "%s findings"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.trends.resolved"
+msgstr "Findings resolved per week"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.trends.average"
+msgstr "Findings per audit (weekly average)"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.trends.audits"
+msgstr "Audits per week"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.trends.empty"
+msgstr "No audits in this period."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.project"
+msgstr "Project"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.file"
+msgstr "File"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.files"
+msgstr "Files"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.open"
+msgstr "Open"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.critical"
+msgstr "Critical"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.fixable"
+msgstr "Fixable"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.adherence"
+msgstr "Token adherence"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.resolved"
+msgstr "Resolved"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.last-audit"
+msgstr "Last audit"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.rule"
+msgstr "Rule"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.area"
+msgstr "Area"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.ignored"
+msgstr "Ignored"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.ignore-rate"
+msgstr "Ignore rate"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.area.open"
+msgstr "Open"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.area.resolved"
+msgstr "Resolved in the period"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.area.fix-rate"
+msgstr "Fix rate"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.area.mttr"
+msgstr "Median time to resolve"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.area.fixed-in-panel"
+msgstr "Fixed from the panel"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.area.ignored"
+msgstr "Ignored"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.rules.hint"
+msgstr "A rule that is often ignored may need a change in the team policy."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.duration.seconds"
+msgstr "%s s"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.duration.minutes"
+msgstr "%s min"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.duration.hours"
+msgstr "%s h"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.duration.days"
+msgstr "%s d"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.empty"
+msgstr "No audits yet. Open a file, switch to Audit mode and click Run audit."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.no-access"
+msgstr "Only team owners and admins, Design Ops and design system admins can see design health."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.error"
+msgstr "Could not load the metrics."
+
 #: src/app/main/ui/dashboard/design_system_callout.cljs
 msgid "dashboard.protocare-ds.title"
 msgstr "Proto Care DS"

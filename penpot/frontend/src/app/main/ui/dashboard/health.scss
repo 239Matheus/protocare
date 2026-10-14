@@ -1,0 +1,360 @@
+// Proto Care — design health dashboard
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+@use "common/refactor/common-dashboard";
+@use "ds/typography.scss" as t;
+@use "ds/_sizes.scss" as *;
+@use "ds/_borders.scss" as *;
+@use "ds/_utils.scss" as *;
+
+.filters {
+  display: flex;
+  gap: var(--sp-s);
+  margin-inline: auto var(--sp-l);
+  inline-size: px2rem(420);
+}
+
+.health-container {
+  flex: 1 0 0;
+  overflow-y: auto;
+  inline-size: 100%;
+  padding: var(--sp-l) var(--sp-xxl) px2rem(80) var(--sp-l);
+  border-block-start: $b-1 solid var(--color-background-quaternary);
+}
+
+.health-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-l);
+  max-inline-size: px2rem(1200);
+  transition: opacity 0.2s;
+
+  &.reloading {
+    opacity: 0.6;
+  }
+}
+
+.centered {
+  display: grid;
+  place-items: center;
+  min-block-size: px2rem(240);
+}
+
+.subtitle,
+.privacy,
+.tab-hint {
+  @include t.use-typography("body-medium");
+
+  margin: 0;
+  color: var(--color-foreground-secondary);
+}
+
+.privacy {
+  @include t.use-typography("body-small");
+}
+
+.tab-hint {
+  margin-block-end: var(--sp-m);
+}
+
+// --- KPIs
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(px2rem(200), 1fr));
+  gap: var(--sp-m);
+  margin-block: var(--sp-l);
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xxs);
+  padding: var(--sp-l);
+  border: $b-1 solid var(--color-background-quaternary);
+  border-radius: $br-8;
+  background: var(--color-background-tertiary);
+}
+
+.kpi-value {
+  @include t.use-typography("title-large");
+
+  color: var(--color-foreground-primary);
+}
+
+.kpi-label {
+  @include t.use-typography("body-medium");
+
+  color: var(--color-foreground-secondary);
+}
+
+.kpi-hint {
+  @include t.use-typography("body-small");
+
+  color: var(--color-foreground-secondary);
+  opacity: 0.8;
+}
+
+.kpi-alert .kpi-value {
+  color: var(--color-foreground-error);
+}
+
+.kpi-good .kpi-value {
+  color: var(--color-accent-success);
+}
+
+// --- Cards
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(px2rem(360), 1fr));
+  gap: var(--sp-m);
+  margin-block-end: var(--sp-m);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-s);
+  padding: var(--sp-l);
+  border: $b-1 solid var(--color-background-quaternary);
+  border-radius: $br-8;
+  background: var(--color-background-tertiary);
+}
+
+.card-title {
+  @include t.use-typography("title-small");
+
+  margin: 0;
+  color: var(--color-foreground-primary);
+}
+
+.card-desc {
+  @include t.use-typography("body-small");
+
+  margin: 0;
+  color: var(--color-foreground-secondary);
+}
+
+// --- Horizontal bars
+
+.hbar-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-s);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-row {
+  display: grid;
+  grid-template-columns: px2rem(170) 1fr px2rem(40);
+  align-items: center;
+  gap: var(--sp-s);
+}
+
+.hbar-label,
+.hbar-value {
+  @include t.use-typography("body-medium");
+
+  color: var(--color-foreground-secondary);
+}
+
+.hbar-value {
+  text-align: end;
+  color: var(--color-foreground-primary);
+}
+
+.hbar-track {
+  block-size: px2rem(8);
+  border-radius: $br-4;
+  background: var(--color-background-quaternary);
+  overflow: hidden;
+}
+
+.hbar-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: $br-4;
+  background: var(--color-accent-primary);
+}
+
+// --- Recent audits
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-row {
+  display: grid;
+  grid-template-columns: 1fr auto px2rem(160);
+  gap: var(--sp-m);
+  padding-block: var(--sp-s);
+  border-block-end: $b-1 solid var(--color-background-quaternary);
+
+  &:last-child {
+    border-block-end: none;
+  }
+}
+
+.recent-file {
+  @include t.use-typography("body-medium");
+
+  color: var(--color-foreground-primary);
+}
+
+.recent-total,
+.recent-when {
+  @include t.use-typography("body-medium");
+
+  color: var(--color-foreground-secondary);
+}
+
+.recent-when {
+  text-align: end;
+}
+
+// --- Weekly charts
+
+.charts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-m);
+  margin-block-start: var(--sp-l);
+}
+
+.chart {
+  margin: 0;
+  padding: var(--sp-l);
+  border: $b-1 solid var(--color-background-quaternary);
+  border-radius: $br-8;
+  background: var(--color-background-tertiary);
+}
+
+.chart-title {
+  @include t.use-typography("title-small");
+
+  margin-block-end: var(--sp-m);
+  color: var(--color-foreground-primary);
+}
+
+.chart-columns {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-xs);
+  block-size: px2rem(180);
+}
+
+.chart-column {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  block-size: 100%;
+  text-align: center;
+}
+
+.chart-bar {
+  place-self: end center;
+  inline-size: 70%;
+  min-block-size: px2rem(2);
+  border-radius: $br-4 $br-4 0 0;
+  background: var(--color-accent-primary);
+}
+
+.chart-value,
+.chart-label {
+  @include t.use-typography("body-small");
+
+  color: var(--color-foreground-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chart-label {
+  padding-block-start: var(--sp-xs);
+}
+
+// --- Tables
+
+.table {
+  inline-size: 100%;
+  margin-block-start: var(--sp-l);
+  border-collapse: collapse;
+
+  th,
+  td {
+    @include t.use-typography("body-medium");
+
+    padding: var(--sp-s) var(--sp-m);
+    border-block-end: $b-1 solid var(--color-background-quaternary);
+    text-align: start;
+    color: var(--color-foreground-secondary);
+  }
+
+  th {
+    @include t.use-typography("headline-small");
+
+    color: var(--color-foreground-secondary);
+  }
+
+  .num {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .strong {
+    color: var(--color-foreground-primary);
+  }
+
+  .warn {
+    color: var(--color-foreground-error);
+  }
+
+  .clickable {
+    cursor: pointer;
+
+    &:hover td {
+      background: var(--color-background-tertiary);
+    }
+  }
+}
+
+// --- Areas
+
+.area-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(px2rem(300), 1fr));
+  gap: var(--sp-m);
+  margin-block-start: var(--sp-l);
+}
+
+.area-stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: var(--sp-xs);
+  margin: var(--sp-s) 0 0;
+
+  dt {
+    @include t.use-typography("body-medium");
+
+    color: var(--color-foreground-secondary);
+  }
+
+  dd {
+    @include t.use-typography("body-medium");
+
+    margin: 0;
+    text-align: end;
+    color: var(--color-foreground-primary);
+  }
+}

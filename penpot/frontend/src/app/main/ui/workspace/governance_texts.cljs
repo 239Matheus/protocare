@@ -20,6 +20,40 @@
   (:require
    [app.util.i18n :refer [tr]]))
 
+(defn area-label
+  "Label of an area id (keyword or string)."
+  [area-id]
+  (case (keyword area-id)
+    :design-system   (tr "workspace.governance.area.design-system")
+    :accessibility   (tr "workspace.governance.area.accessibility")
+    :ui-quality      (tr "workspace.governance.area.ui-quality")
+    :layer-semantics (tr "workspace.governance.area.layer-semantics")
+    :usability       (tr "workspace.governance.area.usability")
+    (tr "workspace.governance.area.all")))
+
+(defn area-description
+  [area-id]
+  (case (keyword area-id)
+    :design-system   (tr "workspace.governance.area.design-system.desc")
+    :accessibility   (tr "workspace.governance.area.accessibility.desc")
+    :ui-quality      (tr "workspace.governance.area.ui-quality.desc")
+    :layer-semantics (tr "workspace.governance.area.layer-semantics.desc")
+    :usability       (tr "workspace.governance.area.usability.desc")
+    ""))
+
+(defn severity-name
+  [severity]
+  (if (keyword? severity) (name severity) (str severity)))
+
+(defn severity-label
+  [severity]
+  (case (severity-name severity)
+    "critical" (tr "workspace.governance.severity.critical")
+    "high"     (tr "workspace.governance.severity.high")
+    "medium"   (tr "workspace.governance.severity.medium")
+    "low"      (tr "workspace.governance.severity.low")
+    (tr "workspace.governance.severity.info")))
+
 (defn rule-title
   "Title of a rule id, or `fallback` (the engine title) when unknown."
   [rule-id fallback]

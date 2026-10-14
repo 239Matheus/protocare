@@ -149,6 +149,7 @@
         :dashboard-recent
         :dashboard-files
         :dashboard-libraries
+        :dashboard-health
         :dashboard-fonts
         :dashboard-font-providers
         :dashboard-members

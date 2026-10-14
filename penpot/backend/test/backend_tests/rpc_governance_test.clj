@@ -213,7 +213,8 @@
                               :team-id team-id})]
         (t/is (nil? (:error out)))
         (t/is (= 1 (get-in out [:result :files-audited])))
-        (t/is (= [proj-id] (mapv :project-id (get-in out [:result :projects]))))))
+        (t/is (= [proj-id] (mapv :project-id (get-in out [:result :projects]))))
+        (t/is (true? (get-in out [:result :projects 0 :is-default])))))
 
     (t/testing "design-ops still cannot change the policy"
       (let [out (th/command! {::th/type :update-governance-policy
@@ -354,7 +355,24 @@
         (t/is (= #{"design-system" "accessibility" "ui-quality" "layer-semantics" "usability"}
                  (set (keys (:by-area m)))))
         (t/is (= 1 (count (:weekly m))))
-        (t/is (= 1 (get-in m [:weekly 0 :resolved])))))))
+        (t/is (= 1 (get-in m [:weekly 0 :resolved])))
+        (t/is (= {} (:by-severity m)))
+        (t/is (= {:area "design-system" :open 0 :resolved 1 :fixed-in-panel 1
+                  :ignored 0 :reopened 0 :ignore-rate 0.0}
+                 (get-in m [:by-rule "token/color"])))))
+
+    (t/testing "governance permissions of the current profile"
+      (let [out (th/command! {::th/type :get-governance-permissions
+                              ::rpc/profile-id (:id member)
+                              :team-id team-id})]
+        (t/is (nil? (:error out)))
+        (t/is (= "designer" (get-in out [:result :governance-role])))
+        (t/is (false? (get-in out [:result :can-view-health]))))
+      (let [out (th/command! {::th/type :get-governance-permissions
+                              ::rpc/profile-id (:id owner)
+                              :team-id team-id})]
+        (t/is (true? (get-in out [:result :can-view-health])))
+        (t/is (true? (get-in out [:result :can-manage-policy])))))))
 
 (t/deftest install-design-system-is-idempotent
   (let [owner   (th/create-profile* 1 {:is-active true})

@@ -18,6 +18,7 @@
    [app.main.data.notifications :as ntf]
    [app.main.data.team :as dtm]
    [app.main.refs :as refs]
+   [app.main.repo :as rp]
    [app.main.router :as rt]
    [app.main.store :as st]
    [app.main.ui.components.dropdown-menu :refer [dropdown-menu*
@@ -44,6 +45,7 @@
    [app.util.i18n :as i18n :refer [tr]]
    [app.util.keyboard :as kbd]
    [app.util.timers :as ts]
+   [beicon.v2.core :as rx]
    [cuerdas.core :as str]
    [goog.functions :as f]
    [rumext.v2 :as mf]))
@@ -260,6 +262,7 @@
         projects?   (= section :dashboard-recent)
         fonts?      (= section :dashboard-fonts)
         libs?       (= section :dashboard-libraries)
+        health?     (= section :dashboard-health)
         drafts?     (and (= section :dashboard-files)
                          (= (:id project) default-project-id))
         container   (mf/use-ref nil)
@@ -310,6 +313,17 @@
            (st/emit! (dcm/go-to-dashboard-files :team-id team-id :project-id default-project-id))
            (schedule-focus-by-id! focus-timer-ref "dashboard-drafts-title")))
 
+        ;; Proto Care: the design health entry is shown only to who can
+        ;; read the aggregated metrics (team owner/admin, design-ops,
+        ;; ds-admin).
+        can-view-health* (mf/use-state false)
+        can-view-health  (deref can-view-health*)
+
+        go-health
+        (mf/use-fn
+         (mf/deps team-id)
+         (fn [] (st/emit! (rt/nav :dashboard-health {:team-id team-id}))))
+
         go-libs
         (mf/use-fn
          (mf/deps team-id)
@@ -331,6 +345,14 @@
                (filter :is-pinned)
                (sort-by :name)
                (not-empty)))]
+
+    (mf/with-effect [team-id]
+      (reset! can-view-health* false)
+      (when (and team-id (contains? cf/flags :governance))
+        (let [sub (->> (rp/cmd! :get-governance-permissions {:team-id team-id})
+                       (rx/subs! #(reset! can-view-health* (boolean (:can-view-health %)))
+                                 (constantly nil)))]
+          #(rx/dispose! sub))))
 
     (mf/with-layout-effect [pinned-projects]
       (let [node          (mf/ref-val container)
@@ -384,6 +406,19 @@
                      :keyboard-action go-libs-with-key}
            [:span {:class (stl/css :element-title)} (tr "labels.shared-libraries")]]]]]
 
+
+       (when can-view-health
+         [:div {:class (stl/css :sidebar-content-section)}
+          [:div {:class (stl/css :sidebar-section-title)}
+           (tr "dashboard.health.section")]
+          [:ul {:class (stl/css :sidebar-nav)}
+           [:li {:class (stl/css-case :current health?
+                                      :sidebar-nav-item true)}
+            [:> link* {:action go-health
+                       :data-testid "health-link-sidebar"
+                       :class (stl/css :sidebar-link)
+                       :keyboard-action go-health}
+             [:span {:class (stl/css :element-title)} (tr "dashboard.health.title")]]]]])
 
        [:div {:class (stl/css :sidebar-content-section)
               :data-testid "pinned-projects"}

@@ -60,6 +60,7 @@
           :dashboard-fonts
           :dashboard-font-providers
           :dashboard-libraries
+          :dashboard-health
           :dashboard-files
           :dashboard-deleted
           :workspace}
@@ -121,6 +122,7 @@
     ["/fonts"                :dashboard-fonts]
     ["/fonts/providers"      :dashboard-font-providers]
     ["/libraries"            :dashboard-libraries]
+    ["/health"               :dashboard-health]
     ["/files"                :dashboard-files]
     ["/deleted" :dashboard-deleted]]
 

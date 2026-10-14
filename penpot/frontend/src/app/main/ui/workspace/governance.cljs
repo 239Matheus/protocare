@@ -35,40 +35,12 @@
 (def ^:private severity-order
   ["critical" "high" "medium" "low" "info"])
 
-;; --- Labels (tr must receive literal keys)
+;; --- Labels (shared with the design health dashboard)
 
-(defn- area-label
-  [area-id]
-  (case area-id
-    :design-system   (tr "workspace.governance.area.design-system")
-    :accessibility   (tr "workspace.governance.area.accessibility")
-    :ui-quality      (tr "workspace.governance.area.ui-quality")
-    :layer-semantics (tr "workspace.governance.area.layer-semantics")
-    :usability       (tr "workspace.governance.area.usability")
-    (tr "workspace.governance.area.all")))
-
-(defn- area-description
-  [area-id]
-  (case area-id
-    :design-system   (tr "workspace.governance.area.design-system.desc")
-    :accessibility   (tr "workspace.governance.area.accessibility.desc")
-    :ui-quality      (tr "workspace.governance.area.ui-quality.desc")
-    :layer-semantics (tr "workspace.governance.area.layer-semantics.desc")
-    :usability       (tr "workspace.governance.area.usability.desc")
-    ""))
-
-(defn- severity-name
-  [severity]
-  (if (keyword? severity) (name severity) (str severity)))
-
-(defn- severity-label
-  [severity]
-  (case (severity-name severity)
-    "critical" (tr "workspace.governance.severity.critical")
-    "high"     (tr "workspace.governance.severity.high")
-    "medium"   (tr "workspace.governance.severity.medium")
-    "low"      (tr "workspace.governance.severity.low")
-    (tr "workspace.governance.severity.info")))
+(def ^:private area-label texts/area-label)
+(def ^:private area-description texts/area-description)
+(def ^:private severity-name texts/severity-name)
+(def ^:private severity-label texts/severity-label)
 
 (defn- status-label
   [status]

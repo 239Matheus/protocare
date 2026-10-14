@@ -51,6 +51,8 @@ O evento é gravado na **mesma transação** da mudança que descreve: se a muda
   - Por arquivo: quem pode ler o arquivo.
   - Por time ou projeto: owner/admin do time, `design-ops` ou `ds-admin`.
 - `get-governance-metrics`: métricas agregadas de um time ou projeto num período (padrão 90 dias). Mesmas permissões da visão de time.
+  - Por regra: abertos, resolvidos, corrigidos pelo painel, ignorados, reabertos e taxa de ignorados. Por severidade: abertos.
+- `get-governance-permissions`: papel de governança e flags do perfil atual no time (usado para mostrar o dashboard só a quem pode vê-lo).
   - Totais: arquivos auditados, auditorias, abertos, resolvidos, taxa de correção.
   - Por área: abertos, resolvidos, corrigidos pelo painel, ignorados, reabertos, taxa de correção, tempo mediano até resolver.
   - Por semana: auditorias, arquivos, achados (soma dos totais de cada auditoria, então um achado conta uma vez por auditoria), achados resolvidos.
@@ -95,18 +97,18 @@ O brief pede uma métrica conceitual sem fórmula fechada. Proposta v0, para cal
 
 ---
 
-## 4. Dashboards (fase B)
+## 4. Dashboards (fase B, implementada)
 
 | Visão | Conteúdo | Fonte |
 |---|---|---|
 | Overview | Arquivos auditados, auditorias recentes, abertos, críticos, aderência a tokens, acessibilidade abertos, taxa de correção | `get-team-health` + `get-governance-metrics` |
 | Tendências | Linhas semanais de detectados e resolvidos; tempo mediano até resolver por área | `get-governance-metrics.weekly` e `by-area` |
 | Projetos | Tabela por projeto com as mesmas colunas da Overview | `get-team-health.projects` + métricas com `project-id` |
-| Áreas | Para cada uma das cinco áreas: abertos, resolvidos, taxa de correção, tempo até resolver, regras mais frequentes | `get-governance-metrics.by-area`; regras mais frequentes pedem um `by-rule` nas métricas (fase B) |
+| Áreas | Para cada uma das cinco áreas: abertos, resolvidos, taxa de correção, tempo até resolver, corrigidos pelo painel, ignorados | `get-governance-metrics.by-area` |
 | Regras | Para o admin do DS: achados, ignorados e reabertos por regra, para calibrar a política | `get-governance-events` agregado |
 | Trilha | Lista de eventos de um arquivo (quem auditou, o que foi resolvido e quando) | `get-governance-events` com `file-id` |
 
-Entrada: uma rota "Saúde do design" no dashboard, visível para owner/admin, `design-ops` e `ds-admin`.
+Implementação: rota `dashboard-health`, item "Saúde do design" na seção "Governança" da sidebar (só aparece para owner/admin, `design-ops` e `ds-admin`), página `frontend/src/app/main/ui/dashboard/health.cljs`. Filtros de projeto e período (30, 90 ou 180 dias); clicar num projeto filtra o dashboard e a aba Projetos passa a listar os arquivos. Gráficos semanais mostram semanas sem atividade como zero. A visão "Trilha" por arquivo fica para a fase D, junto com a exportação.
 
 ---
 
@@ -154,7 +156,7 @@ Hoje a área "Teste de usabilidade" verifica se o protótipo está **pronto para
 | Fase | Entrega | Estado |
 |---|---|---|
 | A | Captura: `governance_event`, `area` e `first_seen_at` nos achados, `get-governance-events`, `get-governance-metrics`, testes | feito |
-| B | Dashboard "Saúde do design" (Overview, Tendências, Projetos, Áreas) | próximo |
+| B | Dashboard "Saúde do design" (Visão geral, Tendências, Projetos, Áreas, Regras) | feito |
 | C | Camadas auditadas no `summary`, Design Health v0, marcação de nó apagado | |
 | D | Exportação CSV/JSON, view para BI, retenção | |
 | E | Módulo de teste de usabilidade | |
