@@ -16,6 +16,7 @@
    [app.common.types.component :as ctk]
    [app.common.types.shape :as cts]
    [app.common.types.shape.layout :as ctl]
+   [app.config :as cf]
    [app.main.data.modal :as modal]
    [app.main.data.workspace :as dw]
    [app.main.data.workspace.transforms :as dwt]
@@ -668,7 +669,12 @@
        nil
 
        (and read-only? (:can-edit permissions))
-       [:> view-only-bar* {}]
+       ;; Proto Care: with governance on, Inspect keeps the floating
+       ;; toolbar (only the mode switcher shows in read-only mode).
+       (if (contains? cf/flags :governance)
+         (when-not hide-ui?
+           [:> top-toolbar* {:layout layout}])
+         [:> view-only-bar* {}])
 
        :else
        [:*

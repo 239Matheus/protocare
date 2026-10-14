@@ -9586,7 +9586,7 @@ msgstr "Autosaved versions will be kept for %s days."
 
 #: src/app/main/ui/workspace/governance.cljs
 msgid "workspace.governance.title"
-msgstr "Governance"
+msgstr "Audit"
 
 msgid "workspace.governance.run"
 msgstr "Run audit"
@@ -9683,3 +9683,49 @@ msgstr "This element no longer exists on the page"
 
 msgid "workspace.governance.inspect.literal"
 msgstr "Literal value, no token applied"
+
+#: src/app/main/ui/workspace/governance.cljs, src/app/main/ui/workspace/mode_switcher.cljs
+msgid "workspace.options.audit"
+msgstr "Audit"
+
+msgid "workspace.governance.modes"
+msgstr "Workspace mode"
+
+msgid "workspace.governance.areas"
+msgstr "Audit areas"
+
+msgid "workspace.governance.area.all"
+msgstr "All areas"
+
+msgid "workspace.governance.area.planned"
+msgstr "Soon"
+
+msgid "workspace.governance.area.design-system"
+msgstr "Design system"
+
+msgid "workspace.governance.area.design-system.desc"
+msgstr "Tokens, styles and official components"
+
+msgid "workspace.governance.area.accessibility"
+msgstr "Accessibility"
+
+msgid "workspace.governance.area.accessibility.desc"
+msgstr "Contrast, text size, touch targets"
+
+msgid "workspace.governance.area.ui-quality"
+msgstr "Interface quality"
+
+msgid "workspace.governance.area.ui-quality.desc"
+msgstr "Heuristics and Gestalt: alignment, spacing, consistency"
+
+msgid "workspace.governance.area.layer-semantics"
+msgstr "Layer semantics"
+
+msgid "workspace.governance.area.layer-semantics.desc"
+msgstr "Descriptive layer names and hierarchy"
+
+msgid "workspace.governance.area.usability"
+msgstr "Usability testing"
+
+msgid "workspace.governance.area.usability.desc"
+msgstr "Tasks and scripts run on prototypes"

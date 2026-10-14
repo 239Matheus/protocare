@@ -15,6 +15,7 @@
    [app.common.types.tokens-lib :as ctob]
    [app.common.types.tokens-status :as ctos]
    [app.common.uuid :as uuid]
+   [app.governance.areas :as areas]
    [app.governance.context :as gctx]
    [app.governance.engine :as engine]
    [app.governance.fix :as fix]
@@ -198,3 +199,19 @@
             audit'' (engine/run-audit (gctx/build-context file''))]
         (t/is (= 4 (get-in audit'' [:summary :total])))
         (t/is (nil? (get-in (ths/get-shape file'' :rect-literal) [:applied-tokens :fill])))))))
+
+(t/deftest audit-areas-classify-rules
+  (t/testing "rule categories map to audit areas"
+    (t/is (= :design-system (areas/area-of "token")))
+    (t/is (= :accessibility (areas/area-of "accessibility")))
+    (t/is (= :layer-semantics (areas/area-of "naming")))
+    (t/is (nil? (areas/area-of "unknown"))))
+
+  (t/testing "an area is active only when it has rules"
+    (t/is (true? (areas/active? :design-system)))
+    (t/is (false? (areas/active? :accessibility)))
+    (t/is (= ["token/color"] (mapv :id (areas/rules-of :design-system)))))
+
+  (t/testing "a new rule activates its area without other changes"
+    (let [rules [{:id "a11y/contrast" :category "accessibility"}]]
+      (t/is (true? (areas/active? :accessibility rules))))))

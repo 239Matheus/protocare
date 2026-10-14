@@ -7,7 +7,8 @@ Estado atual (vertical slice **Color Token Governance**, ponta a ponta):
 
 - Regra `token/color` em CLJC (roda no backend e no browser).
 - Auditoria persistida por arquivo, com histórico, status por resultado (`open`, `fixed`, `ignored`) e métrica de resolvidos entre auditorias.
-- Painel **Governance** no workspace: Run audit, filtros, Go to element (inclusive entre páginas), Fix com confirmação e undo, Ignore.
+- Barra flutuante com os modos **Design · Protótipo · Inspecionar · Auditoria**, no lugar das abas da sidebar (como no Figma).
+- Modo **Auditoria**: Executar auditoria, áreas (Design System, Acessibilidade, Qualidade da interface, Semântica das camadas, Teste de usabilidade), filtros, Ir para o elemento (inclusive entre páginas), Corrigir com confirmação e undo, Ignorar. Hoje só a área Design System tem regras; as outras aparecem como "Em breve" e ativam sozinhas quando ganharem regras.
 - Badge no Inspect quando uma cor é literal (sem token).
 - Política por time (regras, severidade) e papéis `designer`, `design-ops`, `ds-admin`.
 - RPC de saúde agregada por projeto e por time (sem ranking de pessoas).
@@ -57,10 +58,20 @@ O app está pronto quando o backend logar `welcome to penpot` e o frontend `[:ma
 1. Abra `http://localhost:3450`, clique em **Criar uma conta** e depois em **Criar conta de demonstração**.
 2. No dashboard, em "Bibliotecas e Modelos", adicione **Design tokens starter kit** e abra o arquivo.
 3. Desenhe um retângulo (tecla `R`) e, no painel Design, dê a ele a cor `#087EB4` (valor do token `blue.500`).
-4. No canto superior direito, clique no ícone de alerta (**Governance**) e em **Run audit**.
-5. No card do retângulo: **Go to element** seleciona e centraliza; **Fix** abre a confirmação e aplica o token `blue.500`. `Ctrl+Z` desfaz.
-6. Clique em **Run audit** de novo: a violação some e o resumo mostra uma a menos.
-7. Na aba **Inspecionar**, uma cor literal mostra "Literal value, no token applied"; a corrigida mostra o token.
+4. Aguarde o salvamento automático (alguns segundos). Na barra flutuante do topo, clique em **Auditoria** e depois em **Executar auditoria**.
+5. Em **Áreas de auditoria**, clique em **Design System** para filtrar. No card do retângulo: o ícone de mira (**Ir para o elemento**) seleciona e centraliza; **Corrigir** abre a confirmação e aplica o token `blue.500`. `Ctrl+Z` desfaz.
+6. Clique em **Executar auditoria** de novo: o problema some e o resumo mostra um a menos.
+7. No modo **Inspecionar**, uma cor literal mostra "Valor literal, sem token aplicado"; a corrigida mostra o token. A barra continua visível para voltar ao **Design**.
+
+## Desenvolvendo no Windows
+
+O Docker Desktop no Windows não repassa eventos de arquivo para o container, então o watch do frontend não percebe edições feitas no host. Depois de editar, rode:
+
+```powershell
+tools\devenv.ps1 recompile
+```
+
+e recarregue a aba do navegador. Os arquivos `.clj` do backend precisam de restart do backend (janela `backend` do tmux, `Ctrl+C` e `./scripts/start-dev`).
 
 ## Rodar os testes
 

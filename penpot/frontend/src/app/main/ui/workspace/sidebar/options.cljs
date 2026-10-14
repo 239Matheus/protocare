@@ -12,6 +12,7 @@
    [app.common.files.helpers :as cfh]
    [app.common.geom.shapes :as gsh]
    [app.common.types.shape.layout :as ctl]
+   [app.config :as cf]
    [app.main.data.helpers :as dsh]
    [app.main.data.workspace :as udw]
    [app.main.data.workspace.common :as dwc]
@@ -23,6 +24,7 @@
    [app.main.ui.context :as ctx]
    [app.main.ui.ds.layout.tab-switcher :refer [tab-switcher*]]
    [app.main.ui.inspect.right-sidebar :as hrs]
+   [app.main.ui.workspace.governance :refer [governance-panel*]]
    [app.main.ui.workspace.sidebar.debug-shape-info :refer [debug-shape-info*]]
    [app.main.ui.workspace.sidebar.options.drawing :as drawing]
    [app.main.ui.workspace.sidebar.options.menus.align :refer [align-options*]]
@@ -255,6 +257,41 @@
       (st/emit! :interrupt (dwc/set-workspace-read-only true))
       (st/emit! :interrupt (dwc/set-workspace-read-only false)))))
 
+(mf/defc mode-content*
+  {::mf/private true}
+  [{:keys [options-mode objects selected shapes page-id file-id on-change-section on-expand]}]
+  (case options-mode
+    :prototype
+    [:div {:class (stl/css :element-options :interaction-options)}
+     [:> interactions-menu* {:shape (first shapes)}]]
+
+    :inspect
+    [:div {:class (stl/css :element-options :inspect-options)}
+     [:> inspect-tab* {:page-id page-id
+                       :file-id file-id
+                       :objects objects
+                       :selected selected
+                       :shapes shapes
+                       :on-change-section on-change-section
+                       :on-expand on-expand}]]
+
+    ;; Proto Care: governance audit mode
+    :audit
+    [:div {:class (stl/css :audit-options)}
+     [:> governance-panel* {}]]
+
+    :design
+    [:> design-menu* {:selected selected
+                      :objects objects
+                      :page-id page-id
+                      :file-id file-id
+                      :shapes shapes}]
+
+    :debug
+    [:> debug-shape-info*]
+
+    nil))
+
 (mf/defc options-content*
   {::mf/private true}
   [{:keys [objects selected page-id file-id on-change-section on-expand]}]
@@ -290,34 +327,30 @@
 
     [:div {:class (stl/css :tool-window)}
      (if (and (:can-edit permissions) (not render-context-lost?))
-       [:> tab-switcher* {:tabs options-tabs
-                          :on-change on-option-tab-change
-                          :selected (name options-mode)
-                          :class (stl/css :options-tab-switcher)}
-        (case options-mode
-          :prototype
-          [:div {:class (stl/css :element-options :interaction-options)}
-           [:> interactions-menu* {:shape (first shapes)}]]
-
-          :inspect
-          [:div {:class (stl/css :element-options :inspect-options)}
-           [:> inspect-tab* {:page-id page-id
-                             :file-id file-id
+       ;; Proto Care: with governance on, the modes are chosen in the
+       ;; floating toolbar, so the sidebar shows only the active mode.
+       (if (contains? cf/flags :governance)
+         [:div {:class (stl/css :mode-content)}
+          [:> mode-content* {:options-mode options-mode
                              :objects objects
                              :selected selected
                              :shapes shapes
+                             :page-id page-id
+                             :file-id file-id
                              :on-change-section on-change-section
                              :on-expand on-expand}]]
-
-          :design
-          [:> design-menu* {:selected selected
-                            :objects objects
-                            :page-id page-id
-                            :file-id file-id
-                            :shapes shapes}]
-
-          :debug
-          [:> debug-shape-info*])]
+         [:> tab-switcher* {:tabs options-tabs
+                            :on-change on-option-tab-change
+                            :selected (name options-mode)
+                            :class (stl/css :options-tab-switcher)}
+          [:> mode-content* {:options-mode options-mode
+                             :objects objects
+                             :selected selected
+                             :shapes shapes
+                             :page-id page-id
+                             :file-id file-id
+                             :on-change-section on-change-section
+                             :on-expand on-expand}]])
 
        [:div {:class (stl/css :element-options :inspect-options :read-only)}
         [:> inspect-tab* {:page-id page-id

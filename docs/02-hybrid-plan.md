@@ -94,6 +94,15 @@ Plano original:
 - **Fix**: preview (antes/depois) → aprovação → `generate-fix-changes` → commit com undo.
 - Inspect: mostrar token aplicado e badge de conformidade ao lado de cada cor.
 
+## Fase 4.1 — Modos na barra flutuante (2026-10-14)
+
+- Abas **Design · Protótipo · Inspecionar · Auditoria** movidas da sidebar para a barra flutuante (`app.main.ui.workspace.mode-switcher`), com a flag `enable-governance`.
+- Em Inspecionar (somente leitura) a barra continua visível só com o seletor; substitui a faixa "View only / Done" do Penpot.
+- Modo `:audit` (novo em `valid-options-mode`) mostra o painel de auditoria. A sidebar renderiza só o modo ativo.
+- Taxonomia de áreas em `app.governance.areas` (common): Design System, Acessibilidade, Qualidade da interface (heurísticas/Gestalt), Semântica das camadas, Teste de usabilidade. Uma regra entra numa área pela sua `category`; áreas sem regras aparecem como "Em breve".
+- Removido o botão de governança do header e a flag de layout `:governance` (o modo substitui).
+- Pendente: mensagens das regras vêm do engine em inglês; localizar no frontend por `rule-id` + parâmetros.
+
 ## Fase 5 — Dashboard do gestor
 
 - Rota no dashboard: Overview (projetos auditados, auditorias recentes, violações abertas/críticas, aderência, acessibilidade), Trends, Projects, Categories.

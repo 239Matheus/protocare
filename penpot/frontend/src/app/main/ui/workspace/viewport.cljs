@@ -16,6 +16,7 @@
    [app.common.types.shape :as cts]
    [app.common.types.shape-tree :as ctt]
    [app.common.types.shape.layout :as ctl]
+   [app.config :as cf]
    [app.main.data.workspace.modifiers :as dwm]
    [app.main.data.workspace.variants :as dwv]
    [app.main.features :as features]
@@ -343,7 +344,12 @@
        nil
 
        (and read-only? (:can-edit permissions))
-       [:> view-only-bar* {}]
+       ;; Proto Care: with governance on, Inspect keeps the floating
+       ;; toolbar (only the mode switcher shows in read-only mode).
+       (if (contains? cf/flags :governance)
+         (when-not hide-ui?
+           [:> top-toolbar* {:layout layout}])
+         [:> view-only-bar* {}])
 
        :else
        [:*

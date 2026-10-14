@@ -7,7 +7,6 @@
 (ns app.main.ui.workspace.right-header
   (:require-macros [app.main.style :as stl])
   (:require
-   [app.config :as cf]
    [app.main.data.common :as dcm]
    [app.main.data.event :as ev]
    [app.main.data.shortcuts :as scd]
@@ -187,11 +186,6 @@
            (st/emit! (-> (dwh/initialize-history)
                          (vary-meta assoc ::ev/origin "workspace-header")))))
 
-        toggle-governance
-        (mf/use-fn
-         (fn []
-           (st/emit! (dw/toggle-layout-flag :governance))))
-
         open-share-dialog
         (mf/use-fn
          (mf/deps team)
@@ -241,15 +235,6 @@
                                :history-button true)
           :on-click toggle-history}
          deprecated-icon/history]])
-
-     (when (and (not ^boolean read-only?)
-                (contains? cf/flags :governance))
-       [:div {:class (stl/css :history-section)}
-        [:> icon-button* {:variant "ghost"
-                          :icon i/status-alert
-                          :aria-label (tr "workspace.governance.title")
-                          :aria-pressed (contains? layout :governance)
-                          :on-click toggle-governance}]])
 
      (when display-share-button?
        [:a {:class (stl/css :viewer-btn)

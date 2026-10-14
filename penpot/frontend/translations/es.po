@@ -9695,7 +9695,7 @@ msgstr "Los autoguardados duran %s días."
 
 #: src/app/main/ui/workspace/governance.cljs
 msgid "workspace.governance.title"
-msgstr "Gobernanza"
+msgstr "Auditoría"
 
 msgid "workspace.governance.run"
 msgstr "Ejecutar auditoría"
@@ -9792,3 +9792,49 @@ msgstr "Este elemento ya no existe en la página"
 
 msgid "workspace.governance.inspect.literal"
 msgstr "Valor literal, sin token aplicado"
+
+#: src/app/main/ui/workspace/governance.cljs, src/app/main/ui/workspace/mode_switcher.cljs
+msgid "workspace.options.audit"
+msgstr "Auditoría"
+
+msgid "workspace.governance.modes"
+msgstr "Modo del espacio de trabajo"
+
+msgid "workspace.governance.areas"
+msgstr "Áreas de auditoría"
+
+msgid "workspace.governance.area.all"
+msgstr "Todas las áreas"
+
+msgid "workspace.governance.area.planned"
+msgstr "Pronto"
+
+msgid "workspace.governance.area.design-system"
+msgstr "Sistema de diseño"
+
+msgid "workspace.governance.area.design-system.desc"
+msgstr "Tokens, estilos y componentes oficiales"
+
+msgid "workspace.governance.area.accessibility"
+msgstr "Accesibilidad"
+
+msgid "workspace.governance.area.accessibility.desc"
+msgstr "Contraste, tamaño de texto, áreas táctiles"
+
+msgid "workspace.governance.area.ui-quality"
+msgstr "Calidad de la interfaz"
+
+msgid "workspace.governance.area.ui-quality.desc"
+msgstr "Heurísticas y Gestalt: alineación, espaciado, consistencia"
+
+msgid "workspace.governance.area.layer-semantics"
+msgstr "Semántica de capas"
+
+msgid "workspace.governance.area.layer-semantics.desc"
+msgstr "Nombres de capa descriptivos y jerarquía"
+
+msgid "workspace.governance.area.usability"
+msgstr "Pruebas de usabilidad"
+
+msgid "workspace.governance.area.usability.desc"
+msgstr "Tareas y guiones sobre prototipos"

@@ -26,7 +26,8 @@
    [potok.v2.core :as ptk]))
 
 (def default-filters
-  {:severity "all"
+  {:area "all"
+   :severity "all"
    :status "open"})
 
 (def default-state

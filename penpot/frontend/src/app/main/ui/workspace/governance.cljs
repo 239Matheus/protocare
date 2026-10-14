@@ -5,13 +5,14 @@
 ;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 (ns app.main.ui.workspace.governance
-  "Right-sidebar panel with the audit results of the current file."
+  "Audit mode: right-sidebar panel with the audit areas and the results
+   of the current file."
   (:require-macros [app.main.style :as stl])
   (:require
    [app.common.data.macros :as dm]
+   [app.governance.areas :as areas]
    [app.governance.engine :as engine]
    [app.main.data.modal :as modal]
-   [app.main.data.workspace :as dw]
    [app.main.data.workspace.governance :as dwg]
    [app.main.refs :as refs]
    [app.main.store :as st]
@@ -20,7 +21,6 @@
    [app.main.ui.ds.controls.select :refer [select*]]
    [app.main.ui.ds.foundations.assets.icon :as i]
    [app.main.ui.ds.product.empty-state :refer [empty-state*]]
-   [app.main.ui.ds.product.panel-title :refer [panel-title*]]
    [app.util.i18n :refer [tr]]
    [okulary.core :as l]
    [rumext.v2 :as mf]))
@@ -34,16 +34,31 @@
 (def ^:private severity-order
   ["critical" "high" "medium" "low" "info"])
 
+;; --- Labels (tr must receive literal keys)
+
+(defn- area-label
+  [area-id]
+  (case area-id
+    :design-system   (tr "workspace.governance.area.design-system")
+    :accessibility   (tr "workspace.governance.area.accessibility")
+    :ui-quality      (tr "workspace.governance.area.ui-quality")
+    :layer-semantics (tr "workspace.governance.area.layer-semantics")
+    :usability       (tr "workspace.governance.area.usability")
+    (tr "workspace.governance.area.all")))
+
+(defn- area-description
+  [area-id]
+  (case area-id
+    :design-system   (tr "workspace.governance.area.design-system.desc")
+    :accessibility   (tr "workspace.governance.area.accessibility.desc")
+    :ui-quality      (tr "workspace.governance.area.ui-quality.desc")
+    :layer-semantics (tr "workspace.governance.area.layer-semantics.desc")
+    :usability       (tr "workspace.governance.area.usability.desc")
+    ""))
+
 (defn- severity-name
   [severity]
   (if (keyword? severity) (name severity) (str severity)))
-
-(defn- visible?
-  [{:keys [severity status]} filters]
-  (and (or (= "all" (:severity filters))
-           (= (:severity filters) (severity-name severity)))
-       (or (= "all" (:status filters))
-           (= (:status filters) status))))
 
 (defn- severity-label
   [severity]
@@ -61,6 +76,23 @@
     "ignored" (tr "workspace.governance.status.ignored")
     (tr "workspace.governance.status.open")))
 
+;; --- Filtering
+
+(defn- result-area
+  [result]
+  (areas/area-of (:category result)))
+
+(defn- visible?
+  [{:keys [severity status] :as result} filters]
+  (and (or (= "all" (:area filters))
+           (= (:area filters) (some-> (result-area result) name)))
+       (or (= "all" (:severity filters))
+           (= (:severity filters) (severity-name severity)))
+       (or (= "all" (:status filters))
+           (= (:status filters) status))))
+
+;; --- Fix approval
+
 (defn- confirm-fix!
   [result]
   (st/emit!
@@ -73,6 +105,32 @@
                 :accept-label (tr "workspace.governance.fix.accept")
                 :accept-style :primary
                 :on-accept #(st/emit! (dwg/apply-fix result))})))
+
+;; --- Components
+
+(mf/defc area-row*
+  {::mf/private true}
+  [{:keys [area-id open-count selected on-select]}]
+  (let [active?  (areas/active? area-id)
+        on-click (mf/use-fn (mf/deps area-id on-select)
+                            #(on-select (name area-id)))]
+    [:li
+     [:button {:type "button"
+               :disabled (not active?)
+               :aria-pressed selected
+               :class (stl/css-case :area-row true
+                                    :area-selected selected
+                                    :area-planned (not active?))
+               :on-click on-click}
+      [:span {:class (stl/css :area-text)}
+       [:span {:class (stl/css :area-name)} (area-label area-id)]
+       [:span {:class (stl/css :area-desc)} (area-description area-id)]]
+      (if active?
+        [:span {:class (stl/css-case :area-count true
+                                     :area-count-zero (zero? open-count))}
+         (str open-count)]
+        [:span {:class (stl/css :area-planned-pill)}
+         (tr "workspace.governance.area.planned")])]]))
 
 (mf/defc result-card*
   {::mf/private true}
@@ -137,10 +195,6 @@
         [:> button* {:variant "ghost" :on-click on-reopen}
          (tr "workspace.governance.reopen")])]]))
 
-(defn- on-close
-  []
-  (st/emit! (dw/remove-layout-flag :governance)))
-
 (defn- on-run
   []
   (st/emit! (dwg/run-audit)))
@@ -150,7 +204,7 @@
   (let [local    (mf/deref governance-ref)
         status   (:status local)
         audit    (:audit local)
-        filters  (or (:filters local) dwg/default-filters)
+        filters  (merge dwg/default-filters (:filters local))
         results  (:results audit)
         data     (mf/deref refs/workspace-data)
         pages    (:pages-index data)
@@ -158,9 +212,10 @@
         visible  (mf/with-memo [results filters]
                    (filter #(visible? % filters) results))
 
-        open-count (count (filter #(= "open" (:status %)) results))
-        fixable    (count (filter #(and (= "open" (:status %)) (:fix-available %)) results))
-        adherence  (get-in audit [:summary :token-adherence])
+        open-results (filter #(= "open" (:status %)) results)
+        open-by-area (frequencies (keep result-area open-results))
+        fixable      (count (filter :fix-available open-results))
+        adherence    (get-in audit [:summary :token-adherence])
 
         severity-options
         (mf/with-memo []
@@ -175,6 +230,10 @@
            {:id "ignored" :label (tr "workspace.governance.status.ignored")}
            {:id "all" :label (tr "workspace.governance.filter.all")}])
 
+        on-area     (mf/use-fn
+                     (mf/deps filters)
+                     (fn [area]
+                       (st/emit! (dwg/set-filter :area (if (= area (:area filters)) "all" area)))))
         on-severity (mf/use-fn #(st/emit! (dwg/set-filter :severity %)))
         on-status   (mf/use-fn #(st/emit! (dwg/set-filter :status %)))]
 
@@ -182,47 +241,55 @@
       (st/emit! (dwg/initialize) (dwg/fetch-latest-audit)))
 
     [:div {:class (stl/css :governance-panel)}
-     [:> panel-title* {:text (tr "workspace.governance.title")
-                       :on-close on-close}]
-
-     [:div {:class (stl/css :toolbar)}
+     [:header {:class (stl/css :panel-header)}
+      [:h2 {:class (stl/css :panel-title)} (tr "workspace.governance.title")]
       [:> button* {:variant "primary"
                    :disabled (= status :running)
                    :on-click on-run}
        (if (= status :running)
          (tr "workspace.governance.running")
          (tr "workspace.governance.run"))]
-      [:p {:class (stl/css :saved-note)} (tr "workspace.governance.saved-note")]]
+      [:p {:class (stl/css :saved-note)} (tr "workspace.governance.saved-note")]
+      (when audit
+        [:div {:class (stl/css :summary)}
+         [:span (tr "workspace.governance.summary.open" (str (count open-results)))]
+         [:span (tr "workspace.governance.summary.fixable" (str fixable))]
+         (when (number? adherence)
+           [:span (tr "workspace.governance.summary.adherence"
+                      (str (js/Math.round (* 100 adherence)) "%"))])])]
 
-     (when audit
-       [:div {:class (stl/css :summary)}
-        [:span (tr "workspace.governance.summary.open" (str open-count))]
-        [:span (tr "workspace.governance.summary.fixable" (str fixable))]
-        (when (number? adherence)
-          [:span (tr "workspace.governance.summary.adherence"
-                     (str (js/Math.round (* 100 adherence)) "%"))])])
+     [:div {:class (stl/css :panel-body)}
+      [:section {:class (stl/css :areas)}
+       [:h3 {:class (stl/css :section-title)} (tr "workspace.governance.areas")]
+       [:ul {:class (stl/css :area-list)}
+        (for [{:keys [id]} areas/areas]
+          [:> area-row* {:key (name id)
+                         :area-id id
+                         :open-count (get open-by-area id 0)
+                         :selected (= (:area filters) (name id))
+                         :on-select on-area}])]]
 
-     (when audit
-       [:div {:class (stl/css :filters)}
-        [:> select* {:options severity-options
-                     :default-selected (:severity filters)
-                     :on-change on-severity}]
-        [:> select* {:options status-options
-                     :default-selected (:status filters)
-                     :on-change on-status}]])
+      (when audit
+        [:div {:class (stl/css :filters)}
+         [:> select* {:options severity-options
+                      :default-selected (:severity filters)
+                      :on-change on-severity}]
+         [:> select* {:options status-options
+                      :default-selected (:status filters)
+                      :on-change on-status}]])
 
-     [:div {:class (stl/css :results)}
-      (cond
-        (nil? audit)
-        [:> empty-state* {:icon i/status-alert
-                          :text (tr "workspace.governance.empty")}]
+      [:section {:class (stl/css :results)}
+       (cond
+         (nil? audit)
+         [:> empty-state* {:icon i/status-alert
+                           :text (tr "workspace.governance.empty")}]
 
-        (empty? visible)
-        [:> empty-state* {:icon i/status-tick
-                          :text (tr "workspace.governance.clean")}]
+         (empty? visible)
+         [:> empty-state* {:icon i/status-tick
+                           :text (tr "workspace.governance.clean")}]
 
-        :else
-        (for [result visible]
-          [:> result-card* {:key (dm/str (:id result))
-                            :result result
-                            :page-name (get-in pages [(:page-id result) :name])}]))]]))
+         :else
+         (for [result visible]
+           [:> result-card* {:key (dm/str (:id result))
+                             :result result
+                             :page-name (get-in pages [(:page-id result) :name])}]))]]]))

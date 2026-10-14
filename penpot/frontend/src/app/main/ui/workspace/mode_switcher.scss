@@ -1,0 +1,52 @@
+// Proto Care — workspace modes
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+@use "ds/_sizes.scss" as *;
+@use "ds/_borders.scss" as *;
+@use "ds/typography.scss" as *;
+
+// Same look as the sidebar tab switcher it replaces.
+.mode-switcher {
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--sp-xxs);
+  padding: var(--sp-xxs);
+  border-radius: $br-8;
+  background-color: var(--color-background-secondary);
+}
+
+.mode {
+  @include use-typography("headline-small");
+
+  appearance: none;
+  block-size: $sz-32;
+  padding: 0 var(--sp-m);
+  border: none;
+  border-radius: $br-8;
+  outline: $b-1 solid transparent;
+  background: var(--color-background-secondary);
+  color: var(--color-foreground-secondary);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-foreground-primary);
+  }
+
+  &:focus-visible {
+    outline-color: var(--color-accent-primary);
+  }
+}
+
+.mode-selected {
+  background: var(--color-background-quaternary);
+  color: var(--color-accent-primary);
+
+  &:hover {
+    color: var(--color-accent-primary);
+  }
+}

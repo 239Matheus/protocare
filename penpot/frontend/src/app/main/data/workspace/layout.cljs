@@ -53,7 +53,8 @@
     :add #{:tokens}}})
 
 (def valid-options-mode
-  #{:design :prototype :inspect :debug})
+  ;; :audit is the Proto Care governance mode (enable-governance flag)
+  #{:design :prototype :inspect :audit :debug})
 
 (def default-layout
   #{:sitemap

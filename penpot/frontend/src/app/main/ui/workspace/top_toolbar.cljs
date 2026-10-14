@@ -26,6 +26,7 @@
    [app.main.ui.context :as ctx]
    [app.main.ui.ds.buttons.icon-button :refer [icon-button*]]
    [app.main.ui.ds.foundations.assets.icon :as i]
+   [app.main.ui.workspace.mode-switcher :refer [mode-switcher*]]
    [app.util.dom :as dom]
    [app.util.i18n :refer [tr]]
    [app.util.keyboard :as kbd]
@@ -304,6 +305,12 @@
 
         plugins-enabled? (features/active-feature? @st/state "plugins/runtime")
         read-only?       (mf/use-ctx ctx/workspace-read-only?)
+        permissions      (mf/use-ctx ctx/permissions)
+
+        ;; Proto Care: workspace modes live in this toolbar. They stay
+        ;; visible in Inspect (read-only) so the user can switch back.
+        show-modes?      (and (contains? cf/flags :governance)
+                              (:can-edit permissions))
 
         mcp-conn-status  (get mcp :connection-status)
         mcp-valid-token? (get mcp :token-valid)
@@ -357,7 +364,7 @@
            (dom/blur! (dom/get-target event))
            (st/emit! (dwc/toggle-toolbar-visibility))))]
 
-    (when-not ^boolean read-only?
+    (when (or (not ^boolean read-only?) show-modes?)
       [:div {:role "toolbar"
              :aria-label (tr "workspace.toolbar.label")
              :tab-index "0"
@@ -366,72 +373,81 @@
                                   :hidden toolbar-hidden)}
        [:ul {:class (stl/css :toolbar-options)
              :data-testid "toolbar-options"}
-        [:li {:class (stl/css :toolbar-option)}
-         [:> icon-button* {:variant "ghost"
-                           :tooltip-placement "bottom"
-                           :aria-pressed (and (nil? selected-drawing-tool)
-                                              (not selected-edition))
-                           :aria-label (tr "workspace.toolbar.move"  (sc/get-tooltip :move))
-                           :icon i/move
-                           :on-click on-interrupt}]]
+        (when-not ^boolean read-only?
+          [:*
+           [:li {:class (stl/css :toolbar-option)}
+            [:> icon-button* {:variant "ghost"
+                              :tooltip-placement "bottom"
+                              :aria-pressed (and (nil? selected-drawing-tool)
+                                                 (not selected-edition))
+                              :aria-label (tr "workspace.toolbar.move"  (sc/get-tooltip :move))
+                              :icon i/move
+                              :on-click on-interrupt}]]
 
-        [:li {:class (stl/css :toolbar-option)}
-         [:> icon-button* {:variant "ghost"
-                           :tooltip-placement "bottom"
-                           :aria-pressed (= selected-drawing-tool :frame)
-                           :aria-label (tool-label :frame)
-                           :icon i/board
-                           :on-click on-select-tool
-                           :data-tool "frame"}]]
+           [:li {:class (stl/css :toolbar-option)}
+            [:> icon-button* {:variant "ghost"
+                              :tooltip-placement "bottom"
+                              :aria-pressed (= selected-drawing-tool :frame)
+                              :aria-label (tool-label :frame)
+                              :icon i/board
+                              :on-click on-select-tool
+                              :data-tool "frame"}]]
 
-        [:> group-tool* {:key :shapes
-                         :group (get grouped-tools :shapes)
-                         :drawtool selected-drawing-tool
-                         :on-select-tool on-select-tool}]
+           [:> group-tool* {:key :shapes
+                            :group (get grouped-tools :shapes)
+                            :drawtool selected-drawing-tool
+                            :on-select-tool on-select-tool}]
 
-        [:li {:class (stl/css :toolbar-option)}
-         [:> icon-button* {:variant "ghost"
-                           :tooltip-placement "bottom"
-                           :aria-pressed (= selected-drawing-tool :text)
-                           :aria-label (tool-label :text)
-                           :icon i/text
-                           :on-click on-select-tool
-                           :data-tool "text"}]]
+           [:li {:class (stl/css :toolbar-option)}
+            [:> icon-button* {:variant "ghost"
+                              :tooltip-placement "bottom"
+                              :aria-pressed (= selected-drawing-tool :text)
+                              :aria-label (tool-label :text)
+                              :icon i/text
+                              :on-click on-select-tool
+                              :data-tool "text"}]]
 
-        [:li {:class (stl/css :toolbar-option)}
-         [:> image-upload-tool*]]
+           [:li {:class (stl/css :toolbar-option)}
+            [:> image-upload-tool*]]
 
-        [:> group-tool* {:key :free-draw
-                         :group (get grouped-tools :free-draw)
-                         :drawtool selected-drawing-tool
-                         :on-select-tool on-select-tool}]
+           [:> group-tool* {:key :free-draw
+                            :group (get grouped-tools :free-draw)
+                            :drawtool selected-drawing-tool
+                            :on-select-tool on-select-tool}]
 
-        (when separator?
-          [:div {:class (stl/css :toolbar-separator)}])
+           (when separator?
+             [:div {:class (stl/css :toolbar-separator)}])
 
-        (when plugins-enabled?
-          [:li {:class (stl/css :toolbar-option)}
-           [:> icon-button* {:variant "ghost"
-                             :tooltip-placement "bottom"
-                             :aria-label (tool-label :plugins)
-                             :icon i/puzzle
-                             :on-click on-display-plugins-manager
-                             :data-tool "plugins"}]])
+           (when plugins-enabled?
+             [:li {:class (stl/css :toolbar-option)}
+              [:> icon-button* {:variant "ghost"
+                                :tooltip-placement "bottom"
+                                :aria-label (tool-label :plugins)
+                                :icon i/puzzle
+                                :on-click on-display-plugins-manager
+                                :data-tool "plugins"}]])
 
-        (when *assert*
-          [:li {:class (stl/css :toolbar-option)}
-           [:> icon-button* {:variant "ghost"
-                             :tooltip-placement "bottom"
-                             :aria-pressed (contains? layout :debug-panel)
-                             :aria-label (tool-label :debug)
-                             :icon i/bug
-                             :on-click on-toggle-debug-panel}]])
+           (when *assert*
+             [:li {:class (stl/css :toolbar-option)}
+              [:> icon-button* {:variant "ghost"
+                                :tooltip-placement "bottom"
+                                :aria-pressed (contains? layout :debug-panel)
+                                :aria-label (tool-label :debug)
+                                :icon i/bug
+                                :on-click on-toggle-debug-panel}]])
 
-        (when mcp-show?
-          [:li {:class (stl/css :toolbar-option)}
-           [:> mcp-menu* {:is-mcp-connected mcp-connected?
-                          :is-connection-requested (:connection-requested mcp)
-                          :session-id (:session-id mcp)}]])]
+           (when mcp-show?
+             [:li {:class (stl/css :toolbar-option)}
+              [:> mcp-menu* {:is-mcp-connected mcp-connected?
+                             :is-connection-requested (:connection-requested mcp)
+                             :session-id (:session-id mcp)}]])])
+
+        (when show-modes?
+          [:*
+           (when-not ^boolean read-only?
+             [:div {:class (stl/css :toolbar-separator)}])
+           [:li {:class (stl/css :toolbar-option)}
+            [:> mode-switcher* {}]]])]
 
        [:button {:title (tr "workspace.toolbar.toggle-toolbar")
                  :aria-label (tr "workspace.toolbar.toggle-toolbar")

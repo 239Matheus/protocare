@@ -7,6 +7,7 @@
 #   tools\devenv.ps1 up        # start infra + main container (compiles inside tmux)
 #   tools\devenv.ps1 attach    # attach to the tmux session (needs an interactive terminal)
 #   tools\devenv.ps1 status    # tmux windows + last lines of the frontend build
+#   tools\devenv.ps1 recompile # rebuild frontend code, CSS and translations after host edits
 #   tools\devenv.ps1 down      # stop the main container (infra stays up)
 #   tools\devenv.ps1 down-all  # stop everything (data volumes are kept)
 #
@@ -41,6 +42,17 @@ function Invoke-Manage([string]$ManageArgs) {
 switch ($Command) {
     "up"       { Invoke-Manage "run-devenv" }
     "attach"   { Invoke-Manage "attach-devenv" }
+    "recompile" {
+        # Docker Desktop bind mounts on Windows do not forward file events, so
+        # the shadow-cljs and asset watchers never see edits made on the host.
+        $Container = "penpot-devenv-ws0-main"
+        & docker cp (Join-Path $PSScriptRoot "nrepl_eval.py") "${Container}:/tmp/nrepl_eval.py"
+        Write-Host "--- frontend code (shadow-cljs :main) ---"
+        & docker exec $Container python3 /tmp/nrepl_eval.py 3447 "(do (require (quote shadow.cljs.devtools.api)) (str (shadow.cljs.devtools.api/compile :main)))"
+        Write-Host "--- CSS, templates and translations ---"
+        & docker exec $Container sudo -u penpot bash -lc "cd ~/penpot/frontend && node ./scripts/build-app-assets.js"
+        Write-Host "Done. Reload the browser tab."
+    }
     "down"     { Invoke-Manage "stop-devenv" }
     "down-all" { Invoke-Manage "stop-devenv --all" }
     "status"   {

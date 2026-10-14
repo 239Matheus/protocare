@@ -60,3 +60,18 @@
   --tabs-nav-padding-inline-start: var(--sp-m);
   --tabs-nav-padding-inline-end: var(--sp-m);
 }
+
+// Proto Care: sidebar content when the modes live in the floating toolbar.
+.mode-content {
+  display: grid;
+  grid-template-rows: 100%;
+  min-block-size: 0;
+  block-size: 100%;
+  overflow: hidden;
+}
+
+.audit-options {
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+}

@@ -4981,3 +4981,148 @@ msgstr ""
 #: src/app/main/ui/workspace/sidebar/versions.cljs:462
 msgid "workspace.versions.warning.text"
 msgstr "Versões com salvamento automático serão mantidos por %s dias."
+
+#: src/app/main/ui/workspace/governance.cljs, src/app/main/ui/workspace/mode_switcher.cljs
+msgid "workspace.options.audit"
+msgstr "Auditoria"
+
+msgid "workspace.governance.modes"
+msgstr "Modo do espaço de trabalho"
+
+msgid "workspace.governance.areas"
+msgstr "Áreas de auditoria"
+
+msgid "workspace.governance.area.all"
+msgstr "Todas as áreas"
+
+msgid "workspace.governance.area.planned"
+msgstr "Em breve"
+
+msgid "workspace.governance.area.design-system"
+msgstr "Design System"
+
+msgid "workspace.governance.area.design-system.desc"
+msgstr "Tokens, estilos e componentes oficiais"
+
+msgid "workspace.governance.area.accessibility"
+msgstr "Acessibilidade"
+
+msgid "workspace.governance.area.accessibility.desc"
+msgstr "Contraste, tamanho de texto, áreas de toque"
+
+msgid "workspace.governance.area.ui-quality"
+msgstr "Qualidade da interface"
+
+msgid "workspace.governance.area.ui-quality.desc"
+msgstr "Heurísticas e Gestalt: alinhamento, espaçamento, consistência"
+
+msgid "workspace.governance.area.layer-semantics"
+msgstr "Semântica das camadas"
+
+msgid "workspace.governance.area.layer-semantics.desc"
+msgstr "Nomes de camada descritivos e hierarquia"
+
+msgid "workspace.governance.area.usability"
+msgstr "Teste de usabilidade"
+
+msgid "workspace.governance.area.usability.desc"
+msgstr "Tarefas e roteiros sobre protótipos"
+
+msgid "workspace.governance.title"
+msgstr "Auditoria"
+
+msgid "workspace.governance.run"
+msgstr "Executar auditoria"
+
+msgid "workspace.governance.running"
+msgstr "Auditando…"
+
+msgid "workspace.governance.saved-note"
+msgstr "A auditoria analisa a última versão salva deste arquivo."
+
+msgid "workspace.governance.empty"
+msgstr "Nenhuma auditoria ainda. Execute uma para verificar este arquivo contra o design system."
+
+msgid "workspace.governance.clean"
+msgstr "Nenhum problema com os filtros atuais."
+
+msgid "workspace.governance.summary.open"
+msgstr "%s em aberto"
+
+msgid "workspace.governance.summary.fixable"
+msgstr "%s corrigíveis"
+
+msgid "workspace.governance.summary.adherence"
+msgstr "%s de aderência a tokens"
+
+msgid "workspace.governance.filter.all"
+msgstr "Todas"
+
+msgid "workspace.governance.severity.critical"
+msgstr "Crítica"
+
+msgid "workspace.governance.severity.high"
+msgstr "Alta"
+
+msgid "workspace.governance.severity.medium"
+msgstr "Média"
+
+msgid "workspace.governance.severity.low"
+msgstr "Baixa"
+
+msgid "workspace.governance.severity.info"
+msgstr "Info"
+
+msgid "workspace.governance.status.open"
+msgstr "Em aberto"
+
+msgid "workspace.governance.status.fixed"
+msgstr "Corrigida"
+
+msgid "workspace.governance.status.ignored"
+msgstr "Ignorada"
+
+msgid "workspace.governance.current"
+msgstr "Atual"
+
+msgid "workspace.governance.expected"
+msgstr "Esperado"
+
+msgid "workspace.governance.go-to"
+msgstr "Ir para o elemento"
+
+msgid "workspace.governance.fix"
+msgstr "Corrigir"
+
+msgid "workspace.governance.ignore"
+msgstr "Ignorar"
+
+msgid "workspace.governance.reopen"
+msgstr "Reabrir"
+
+msgid "workspace.governance.fix.title"
+msgstr "Aplicar correção?"
+
+msgid "workspace.governance.fix.message"
+msgstr "Substituir o valor literal %s pelo token %s em \"%s\". Você pode desfazer esta alteração."
+
+msgid "workspace.governance.fix.accept"
+msgstr "Aplicar"
+
+msgid "workspace.governance.fix-applied"
+msgstr "Correção aplicada"
+
+msgid "workspace.governance.fix-error"
+msgstr "Não foi possível aplicar a correção"
+
+msgid "workspace.governance.run-error"
+msgstr "Não foi possível executar a auditoria"
+
+msgid "workspace.governance.status-error"
+msgstr "Não foi possível atualizar o status do resultado"
+
+msgid "workspace.governance.node-missing"
+msgstr "Este elemento não existe mais na página"
+
+msgid "workspace.governance.inspect.literal"
+msgstr "Valor literal, sem token aplicado"
