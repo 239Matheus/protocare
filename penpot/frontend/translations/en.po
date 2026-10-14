@@ -9950,6 +9950,22 @@ msgstr "Add a back or next action so the test can continue."
 msgid "title.dashboard.health"
 msgstr "Design health - %s - Penpot"
 
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.all-projects"
+msgstr "All projects"
+
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.resources"
+msgstr "Resources"
+
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.trash"
+msgstr "Trash"
+
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.favorites"
+msgstr "Favorites"
+
 #: src/app/main/ui/dashboard/health.cljs
 msgid "dashboard.health.section"
 msgstr "Governance"

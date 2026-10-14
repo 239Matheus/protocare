@@ -390,7 +390,8 @@
          [:span {:class (stl/css :team-text)} (tr "dashboard.create-new-organization")]])]]))
 
 (mf/defc organization-team-switch*
-  [{:keys [team profile]}]
+  "`compact`: one-row variant used by the Proto Care home menu."
+  [{:keys [team profile compact]}]
   (let [teams (mf/deref refs/teams)
 
         current-organization (dtm/team->organization team)
@@ -611,7 +612,8 @@
         on-organization-leave-requested
         (mf/use-fn #(do (reset! context-menu* nil) (reset! show-menu* false)))]
 
-    [:div {:class (stl/css :organization-team-switch)}
+    [:div {:class (stl/css-case :organization-team-switch true
+                                :compact compact)}
      [:div {:class (stl/css :switch-button-row)}
       [:button {:class (stl/css-case :current-selection true
                                      :no-options-button (not show-team-options-button?))
@@ -635,7 +637,9 @@
         (when-let [organization-name (closed-control-line-2 has-organizations? current-organization)]
           [:span {:class (stl/css :current-organization-name)
                   :title organization-name}
-           organization-name])]]
+           organization-name])]
+       (when compact
+         [:> icon* {:icon-id i/arrow-down :size "s" :class (stl/css :compact-chevron)}])]
 
       (when show-team-options-button?
         [:button {:class (stl/css :options-button)

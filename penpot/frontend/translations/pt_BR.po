@@ -5347,6 +5347,22 @@ msgstr "Valor literal, sem token aplicado"
 msgid "title.dashboard.health"
 msgstr "Saúde do design - %s - Penpot"
 
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.all-projects"
+msgstr "Todos os projetos"
+
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.resources"
+msgstr "Recursos"
+
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.trash"
+msgstr "Lixeira"
+
+#: src/app/main/ui/dashboard/sidebar.cljs
+msgid "dashboard.home.favorites"
+msgstr "Favoritos"
+
 #: src/app/main/ui/dashboard/health.cljs
 msgid "dashboard.health.section"
 msgstr "Governança"

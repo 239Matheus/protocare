@@ -37,7 +37,7 @@
    [app.main.ui.dashboard.team-form]
    [app.main.ui.ds.foundations.assets.icon :refer [icon*] :as i]
    [app.main.ui.ds.layout.menu :refer [context-menu*]]
-   [app.main.ui.hooks :refer [use-focus-timer-ref]]
+   [app.main.ui.hooks :as hooks :refer [use-focus-timer-ref]]
    [app.main.ui.icons :as deprecated-icon]
    [app.main.ui.nitrate.nitrate-form]
    [app.util.dom :as dom]
@@ -250,6 +250,128 @@
                  :aria-label "dashboard-search"
                  :on-click on-clear-click}
         search-icon])]))
+
+(defn- home-menu?
+  "Proto Care: the dashboard menu follows Figma's home menu (profile on
+   top, team row, icon items, favorites)."
+  []
+  (contains? cf/flags :governance))
+
+(mf/defc home-item*
+  {::mf/private true}
+  [{:keys [icon label current on-click testid]}]
+  [:li {:class (stl/css-case :home-item true
+                             :home-item-current current)}
+   [:> link* {:action on-click
+              :class (stl/css :home-link)
+              :keyboard-action on-click
+              :data-testid testid}
+    [:> icon* {:icon-id icon :size "m" :class (stl/css :home-icon)}]
+    [:span {:class (stl/css :home-label)} label]]])
+
+(mf/defc home-content*
+  {::mf/private true}
+  [{:keys [projects profile section team project search-term default-project]}]
+  (let [team-id            (get team :id)
+        default-project-id (get default-project :id)
+        drafts?            (and (= section :dashboard-files)
+                                (= (:id project) default-project-id))
+
+        can-view-health*   (mf/use-state false)
+        can-view-health    (deref can-view-health*)
+
+        favorites-open*    (hooks/use-persisted-state ::favorites-open true)
+        favorites-open?    (deref favorites-open*)
+
+        go-drafts    (mf/use-fn
+                      (mf/deps team-id default-project-id)
+                      #(st/emit! (dcm/go-to-dashboard-files :team-id team-id
+                                                            :project-id default-project-id)))
+        go-projects  (mf/use-fn (mf/deps team-id) #(st/emit! (dcm/go-to-dashboard-recent :team-id team-id)))
+        go-libs      (mf/use-fn (mf/deps team-id) #(st/emit! (dcm/go-to-dashboard-libraries :team-id team-id)))
+        go-fonts     (mf/use-fn (mf/deps team-id) #(st/emit! (dcm/go-to-dashboard-fonts :team-id team-id)))
+        go-health    (mf/use-fn (mf/deps team-id) #(st/emit! (rt/nav :dashboard-health {:team-id team-id})))
+        go-trash     (mf/use-fn (mf/deps team-id) #(st/emit! (dcm/go-to-dashboard-deleted :team-id team-id)))
+        toggle-favs  (mf/use-fn #(swap! favorites-open* not))
+
+        pinned-projects
+        (mf/with-memo [projects]
+          (->> projects
+               (remove :deleted-at)
+               (remove :is-default)
+               (filter :is-pinned)
+               (sort-by :name)
+               (not-empty)))]
+
+    (mf/with-effect [team-id]
+      (reset! can-view-health* false)
+      (when team-id
+        (let [sub (->> (rp/cmd! :get-governance-permissions {:team-id team-id})
+                       (rx/subs! #(reset! can-view-health* (boolean (:can-view-health %)))
+                                 (constantly nil)))]
+          #(rx/dispose! sub))))
+
+    [:div {:class (stl/css :home-content)}
+     [:> sidebar-search* {:search-term search-term
+                          :team-id team-id}]
+
+     [:div {:class (stl/css :home-separator)}]
+
+     [:> organization-team-switch* {:team team :profile profile :compact true}]
+
+     [:ul {:class (stl/css :home-nav)}
+      [:> home-item* {:icon i/document
+                      :label (tr "labels.drafts")
+                      :current drafts?
+                      :on-click go-drafts
+                      :testid "home-drafts"}]
+      [:> home-item* {:icon i/view-as-icons
+                      :label (tr "dashboard.home.all-projects")
+                      :current (= section :dashboard-recent)
+                      :on-click go-projects
+                      :testid "home-projects"}]
+      [:> home-item* {:icon i/library
+                      :label (tr "dashboard.home.resources")
+                      :current (= section :dashboard-libraries)
+                      :on-click go-libs
+                      :testid "libs-link-sidebar"}]
+      [:> home-item* {:icon i/text-font-family
+                      :label (tr "labels.fonts")
+                      :current (contains? #{:dashboard-fonts :dashboard-font-providers} section)
+                      :on-click go-fonts
+                      :testid "fonts"}]
+      (when can-view-health
+        [:> home-item* {:icon i/status-tick
+                        :label (tr "dashboard.health.title")
+                        :current (= section :dashboard-health)
+                        :on-click go-health
+                        :testid "health-link-sidebar"}])
+      [:> home-item* {:icon i/delete
+                      :label (tr "dashboard.home.trash")
+                      :current (= section :dashboard-deleted)
+                      :on-click go-trash
+                      :testid "home-trash"}]]
+
+     [:div {:class (stl/css :home-separator)}]
+
+     [:div {:class (stl/css :home-favorites) :data-testid "pinned-projects"}
+      [:button {:type "button"
+                :class (stl/css :home-favorites-title)
+                :aria-expanded favorites-open?
+                :on-click toggle-favs}
+       [:> icon* {:icon-id (if favorites-open? i/arrow-down i/arrow-right) :size "s"}]
+       [:span (tr "dashboard.home.favorites")]]
+      (when favorites-open?
+        (if (some? pinned-projects)
+          [:ul {:class (stl/css :sidebar-nav :pinned-projects)}
+           (for [item pinned-projects]
+             [:> sidebar-project*
+              {:item item
+               :key (dm/str (:id item))
+               :id (:id item)
+               :team-id team-id
+               :is-selected (= (:id item) (:id project))}])]
+          [:p {:class (stl/css :home-empty)} (tr "dashboard.no-projects-placeholder")]))]]))
 
 (mf/defc sidebar-content*
   {::mf/private true}
@@ -595,7 +717,9 @@
                       :size "s"}])]])]))
 
 (mf/defc profile-section*
-  [{:keys [profile team]}]
+  "`placement` \"top\": compact profile row at the top of the Proto Care
+   home menu; its menus open downwards."
+  [{:keys [profile team placement]}]
   (let [teams            (mf/deref refs/teams)
         show-profile-menu* (mf/use-state false)
         show-profile-menu? (deref show-profile-menu*)
@@ -713,11 +837,13 @@
        [:& comments-section
         {:profile profile
          :team team
+         :placement (when (= placement "top") "below")
          :show? show-comments?
          :on-show-comments handle-show-comments
          :on-hide-comments handle-hide-comments}])
 
-     [:div {:class (stl/css :profile-section)}
+     [:div {:class (stl/css-case :profile-section true
+                                 :profile-section-top (= placement "top"))}
       [:button {:class (stl/css :profile)
                 :tab-index "0"
                 :on-click handle-click
@@ -726,7 +852,9 @@
        [:img {:src photo
               :class (stl/css :profile-img)
               :alt (:fullname profile)}]
-       [:span {:class (stl/css :profile-fullname)} (:fullname profile)]]
+       [:span {:class (stl/css :profile-fullname)} (:fullname profile)]
+       (when (= placement "top")
+         [:> icon* {:icon-id i/arrow-down :size "s" :class (stl/css :profile-chevron)}])]
 
       [:> dropdown-menu* {:on-close on-close
                           :show show-profile-menu?
@@ -815,8 +943,15 @@
 (mf/defc sidebar*
   {::mf/wrap [mf/memo]}
   [{:keys [team profile] :as props}]
-  [:nav {:class (stl/css :dashboard-sidebar) :data-testid "dashboard-sidebar"}
-   [:> sidebar-content* props]
-   [:> profile-section*
-    {:profile profile
-     :team team}]])
+  (if (home-menu?)
+    [:nav {:class (stl/css :dashboard-sidebar :home-menu) :data-testid "dashboard-sidebar"}
+     [:div {:class (stl/css :profile-top)}
+      [:> profile-section* {:profile profile
+                            :team team
+                            :placement "top"}]]
+     [:> home-content* props]]
+    [:nav {:class (stl/css :dashboard-sidebar) :data-testid "dashboard-sidebar"}
+     [:> sidebar-content* props]
+     [:> profile-section*
+      {:profile profile
+       :team team}]]))

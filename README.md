@@ -12,7 +12,7 @@ Estado atual (governança ponta a ponta, com evidências):
   - Semântica das camadas: `naming/default-name`, `naming/duplicate`.
   - Teste de usabilidade: `usability/broken-link`, `usability/flow`, `usability/dead-end`.
 - Auditoria persistida por arquivo, com histórico, status por resultado (`open`, `fixed`, `ignored`) e métrica de resolvidos entre auditorias.
-- Interface estilo Figma: barra de ferramentas embaixo e centralizada, com os modos **Design · Protótipo · Inspecionar · Auditoria** como ícones, e trilho vertical de ícones à esquerda (Arquivo, Recursos, Tokens).
+- Interface estilo Figma: barra de ferramentas embaixo e centralizada, com os modos **Design · Protótipo · Inspecionar · Auditoria** como ícones, e trilho vertical de ícones à esquerda (Arquivo, Recursos, Tokens). No dashboard, o menu segue o da home do Figma: perfil no topo, time, itens com ícone e Favoritos.
 - Modo **Auditoria**: Executar auditoria, áreas (Design System, Acessibilidade, Qualidade da interface, Semântica das camadas, Teste de usabilidade), filtros, Ir para o elemento (inclusive entre páginas), Corrigir com confirmação e undo, Ignorar. Textos das regras em inglês e português (espanhol usa o inglês por enquanto).
 - Badge no Inspect quando uma cor é literal (sem token).
 - **Proto Care DS** embutido: design system de exemplo (tokens com temas Light/Dark, componentes e uma tela de teste com erros intencionais), disponível como primeiro modelo em "Bibliotecas e Modelos". Detalhes em `penpot/protocare/design-system/README.md`.

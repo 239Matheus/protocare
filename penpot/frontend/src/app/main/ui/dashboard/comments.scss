@@ -112,3 +112,8 @@
     border: deprecated.$s-1 solid;
   }
 }
+
+// Proto Care: opens under the trigger when the profile is at the top
+.dropdown.dropdown-below {
+  inset-block: deprecated.$s-48 auto;
+}

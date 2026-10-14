@@ -144,6 +144,7 @@ Plano original:
 - RPCs novas: `get-file-health` (micro: telas de um arquivo e seus achados) e `get-governance-people` (quem editou arquivos ou trabalhou nas auditorias, com papel, número de arquivos e última atividade; nenhum achado atribuído a pessoas).
 - Dashboard: aba Explorar (projetos > arquivos > telas > achados, com breadcrumb e "Abrir arquivo"), aba Pessoas, filtro de tema (só aparece quando há temas em uso).
 - Workspace: barra de ferramentas embaixo, centralizada, estilo Figma (ferramenta ativa preenchida, flyouts abrem para cima) e modos como ícones com tooltip (Design, Protótipo, Inspecionar, Auditoria). Barra lateral esquerda virou um trilho vertical de ícones (Arquivo, Recursos, Tokens) com botão de recolher.
+- Menu da home (dashboard) no estilo Figma: perfil no topo (menus e notificações abrem para baixo), busca, linha do time compacta, itens com ícone (Rascunhos, Todos os projetos, Recursos, Fontes, Saúde do design, Lixeira) e Favoritos recolhível com os projetos fixados. `organization-team-switch*` ganhou a variante `compact` e `comments-section` a posição `below`.
 - Script `penpot/protocare/scripts/telas_de_cadastro.clj` (REPL do backend): publica o Proto Care DS, liga ao arquivo, usa os tokens do DS e desenha o fluxo Login, Criar conta, Conta criada, Recuperar senha e Link enviado, com cópias de componentes, protótipo e três fluxos. Recusa desenhar sobre uma página com conteúdo e cria um snapshot antes.
 
 ## Fase 6 — Mais regras

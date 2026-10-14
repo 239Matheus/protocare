@@ -432,3 +432,52 @@
   max-height: $sz-480;
   overflow-y: auto;
 }
+
+// --- Proto Care: compact one-row variant (home menu, Figma style)
+
+.organization-team-switch.compact {
+  padding: 0 var(--sp-s);
+
+  .switch-button-row {
+    height: $sz-32;
+  }
+
+  .current-selection {
+    grid-template-columns: auto 1fr auto;
+    padding: 0 var(--sp-s);
+    border-radius: $br-8;
+    background-color: transparent;
+
+    &:hover {
+      background-color: var(--color-background-tertiary);
+    }
+  }
+
+  .options-button {
+    width: $sz-32;
+    border-radius: $br-8;
+    background-color: transparent;
+
+    &:hover {
+      background-color: var(--color-background-tertiary);
+    }
+  }
+
+  .personal-projects-icon,
+  .team-picture {
+    height: $sz-24;
+    width: $sz-24;
+  }
+
+  .current-team-name {
+    @include t.use-typography("title-small");
+  }
+
+  .current-organization-name {
+    display: none;
+  }
+}
+
+.compact-chevron {
+  color: var(--color-foreground-secondary);
+}

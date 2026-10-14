@@ -47,7 +47,9 @@
         [:div {:class (stl/css :unread)}])]]))
 
 (mf/defc comments-section
-  [{:keys [profile team show? on-hide-comments]}]
+  "`placement` \"below\" opens the panel under the trigger (Proto Care
+   home menu, where the profile sits at the top)."
+  [{:keys [profile team show? on-hide-comments placement]}]
   (let [threads-map    (mf/deref refs/comment-threads)
 
         ;; FIXME: with-memo
@@ -84,7 +86,10 @@
 
     [:div {:class (stl/css :dashboard-comments-section)}
      [:& dropdown {:show show? :on-close on-hide-comments :dropdown-id "dashboard-comments"}
-      [:div {:class (stl/css :dropdown :comments-section :comment-threads-section)}
+      [:div {:class (stl/css-case :dropdown true
+                                  :dropdown-below (= placement "below")
+                                  :comments-section true
+                                  :comment-threads-section true)}
        [:div {:class (stl/css :header)}
         [:h3 {:class (stl/css :header-title)} (tr "dashboard.notifications")]
         (when (seq tgroups)
