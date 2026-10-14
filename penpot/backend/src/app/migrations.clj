@@ -530,7 +530,10 @@
     :fn (mg/resource "app/migrations/sql/0157-add-governance-tables.sql")}
 
    {:name "0158-add-governance-event-table"
-    :fn (mg/resource "app/migrations/sql/0158-add-governance-event-table.sql")}])
+    :fn (mg/resource "app/migrations/sql/0158-add-governance-event-table.sql")}
+
+   {:name "0159-add-governance-themes-and-boards"
+    :fn (mg/resource "app/migrations/sql/0159-add-governance-themes-and-boards.sql")}])
 
 (defn apply-migrations!
   [pool name migrations]

@@ -374,6 +374,87 @@
         (t/is (true? (get-in out [:result :can-view-health])))
         (t/is (true? (get-in out [:result :can-manage-policy])))))))
 
+(t/deftest micro-view-themes-and-people
+  (let [owner   (th/create-profile* 1 {:is-active true})
+        member  (th/create-profile* 2 {:is-active true})
+        team-id (:default-team-id owner)
+        _       (th/create-team-role* {:team-id team-id
+                                       :profile-id (:id member)
+                                       :role :editor})
+        {:keys [file]} (seed-file! owner)
+        audit   (:result (th/command! {::th/type :run-audit
+                                       ::rpc/profile-id (:id owner)
+                                       :file-id (:id file)}))]
+
+    (t/testing "audits keep the active token themes"
+      (t/is (= ["light"] (get-in audit [:summary :themes])))
+      ;; decoded, so the response can be serialized
+      (t/is (= ["light"] (:themes audit))))
+
+    (t/testing "team health lists the themes in use and filters by them"
+      (let [all   (:result (th/command! {::th/type :get-team-health
+                                         ::rpc/profile-id (:id owner)
+                                         :team-id team-id}))
+            light (:result (th/command! {::th/type :get-team-health
+                                         ::rpc/profile-id (:id owner)
+                                         :team-id team-id
+                                         :theme "light"}))
+            dark  (:result (th/command! {::th/type :get-team-health
+                                         ::rpc/profile-id (:id owner)
+                                         :team-id team-id
+                                         :theme "dark"}))]
+        (t/is (= ["light"] (:themes all)))
+        (t/is (= 1 (:files-audited light)))
+        (t/is (= 0 (:files-audited dark)))
+        (t/is (= ["light"] (:themes dark)))))
+
+    (t/testing "metrics filter by theme"
+      (let [m (:result (th/command! {::th/type :get-governance-metrics
+                                     ::rpc/profile-id (:id owner)
+                                     :team-id team-id
+                                     :theme "dark"}))]
+        (t/is (= 0 (:open m)))
+        (t/is (= 0 (:audits m))))
+      (let [m (:result (th/command! {::th/type :get-governance-metrics
+                                     ::rpc/profile-id (:id owner)
+                                     :team-id team-id
+                                     :theme "light"}))]
+        (t/is (= 1 (:open m)))
+        (t/is (= 1 (:audits m)))))
+
+    (t/testing "file health groups findings by board"
+      (let [out (th/command! {::th/type :get-file-health
+                              ::rpc/profile-id (:id owner)
+                              :file-id (:id file)})
+            fh  (:result out)]
+        (t/is (nil? (:error out)))
+        (t/is (= (:id file) (:file-id fh)))
+        (t/is (= ["light"] (get-in fh [:audit :themes])))
+        (t/is (= 1 (count (:results fh))))
+        (t/is (= [{:board-id nil :open 1 :fixable 1}]
+                 (mapv #(select-keys % [:board-id :open :fixable]) (:boards fh))))))
+
+    (t/testing "people involved, without quality numbers"
+      (let [out    (th/command! {::th/type :get-governance-people
+                                 ::rpc/profile-id (:id owner)
+                                 :team-id team-id
+                                 :file-id (:id file)})
+            [p :as people] (:result out)]
+        (t/is (nil? (:error out)))
+        (t/is (= [(:id owner)] (mapv :profile-id people)))
+        (t/is (= "designer" (:role p)))
+        (t/is (= 1 (:files p)))
+        (t/is (= [(:id file)] (:file-ids p)))
+        ;; Only identity and activity: no findings attributed to people
+        (t/is (every? #{:profile-id :fullname :photo-id :role :files :file-ids :last-activity-at}
+                      (keys p)))))
+
+    (t/testing "a plain editor cannot open the micro view"
+      (let [out (th/command! {::th/type :get-file-health
+                              ::rpc/profile-id (:id member)
+                              :file-id (:id file)})]
+        (t/is (th/ex-of-type? (:error out) :not-found))))))
+
 (t/deftest install-design-system-is-idempotent
   (let [owner   (th/create-profile* 1 {:is-active true})
         member  (th/create-profile* 2 {:is-active true})

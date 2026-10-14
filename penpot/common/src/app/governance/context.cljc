@@ -15,6 +15,7 @@
    [app.common.files.tokens :as cfo]
    [app.common.types.file :as ctf]
    [app.common.types.pages-list :as ctpl]
+   [app.common.types.tokens-lib :as ctob]
    [app.common.types.tokens-status :as ctos]
    [app.governance.shapes :as gsh]
    [cuerdas.core :as str]))
@@ -73,9 +74,9 @@
             (recur ref (inc depth))
             value))))))
 
-(defn active-tokens
-  "Returns an ordered map name -> token with the tokens active in the
-   file. Honors `:tokens-source` when the file takes tokens from a library."
+(defn- tokens-lib-and-status
+  "[tokens-lib tokens-status] of the file. Honors `:tokens-source` when
+   the file takes tokens from a library."
   [file libraries]
   (let [fdata      (ctf/file-data file)
         source-id  (cfo/get-effective-tokens-source fdata)
@@ -88,9 +89,34 @@
         status     (or (cfo/get-tokens-status fdata)
                        (some-> tokens-lib cfo/make-tokens-status-from-lib)
                        (ctos/make-tokens-status))]
+    [tokens-lib status]))
+
+(defn active-tokens
+  "Returns an ordered map name -> token with the tokens active in the
+   file. Honors `:tokens-source` when the file takes tokens from a library."
+  [file libraries]
+  (let [[tokens-lib status] (tokens-lib-and-status file libraries)]
     (if (some? tokens-lib)
       (cfo/get-tokens-in-active-sets status tokens-lib)
       (d/ordered-map))))
+
+(defn active-themes
+  "Sorted paths (\"Mode/Light\") of the token themes active in the file,
+   so audits can be filtered by design system theme."
+  [file libraries]
+  (let [[tokens-lib status] (tokens-lib-and-status file libraries)]
+    (if (some? tokens-lib)
+      (->> (ctos/get-active-theme-ids status)
+           (remove #(= % ctob/hidden-theme-id))
+           (keep #(ctob/get-theme tokens-lib %))
+           (map (fn [theme]
+                  (let [group (:group theme)]
+                    (if (str/blank? group)
+                      (:name theme)
+                      (str group "/" (:name theme))))))
+           (sort)
+           (vec))
+      [])))
 
 (defn color-index
   "Builds a map normalized-hex -> sorted vector of token names, for every
@@ -206,6 +232,7 @@
      :spacing-scale (into (sorted-set) (keys spacing))
      :radius-index (number-index tokens #{:border-radius})
      :typography-index (typography-index tokens)
+     :themes (active-themes file libraries)
      :options (merge default-options options)}))
 
 (defn page-objects

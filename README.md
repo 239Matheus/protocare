@@ -12,14 +12,14 @@ Estado atual (governança ponta a ponta, com evidências):
   - Semântica das camadas: `naming/default-name`, `naming/duplicate`.
   - Teste de usabilidade: `usability/broken-link`, `usability/flow`, `usability/dead-end`.
 - Auditoria persistida por arquivo, com histórico, status por resultado (`open`, `fixed`, `ignored`) e métrica de resolvidos entre auditorias.
-- Barra flutuante com os modos **Design · Protótipo · Inspecionar · Auditoria**, no lugar das abas da sidebar (como no Figma).
+- Interface estilo Figma: barra de ferramentas embaixo e centralizada, com os modos **Design · Protótipo · Inspecionar · Auditoria** como ícones, e trilho vertical de ícones à esquerda (Arquivo, Recursos, Tokens).
 - Modo **Auditoria**: Executar auditoria, áreas (Design System, Acessibilidade, Qualidade da interface, Semântica das camadas, Teste de usabilidade), filtros, Ir para o elemento (inclusive entre páginas), Corrigir com confirmação e undo, Ignorar. Textos das regras em inglês e português (espanhol usa o inglês por enquanto).
 - Badge no Inspect quando uma cor é literal (sem token).
 - **Proto Care DS** embutido: design system de exemplo (tokens com temas Light/Dark, componentes e uma tela de teste com erros intencionais), disponível como primeiro modelo em "Bibliotecas e Modelos". Detalhes em `penpot/protocare/design-system/README.md`.
 - Política por time (regras, severidade) e papéis `designer`, `design-ops`, `ds-admin`.
 - RPC de saúde agregada por projeto e por time (sem ranking de pessoas).
 - **Evidências**: trilha `governance_event` (auditorias, achados resolvidos com tempo aberto, mudanças de status, política, instalação do DS) e métricas por área e por semana. Plano completo em `docs/03-analytics-plan.md`.
-- Dashboard **Saúde do design** (sidebar do dashboard, seção Governança): visão geral, tendências semanais, projetos e arquivos, áreas e regras, com filtro de projeto e período. Visível para owner/admin, `design-ops` e `ds-admin`.
+- Dashboard **Saúde do design** (sidebar do dashboard, seção Governança): visão geral, tendências semanais, Explorar (projetos > arquivos > telas > achados), áreas, regras e pessoas envolvidas, com filtro de projeto, tema do DS (só os usados) e período. Visível para owner/admin, `design-ops` e `ds-admin`.
 
 ## Layout do repositório
 

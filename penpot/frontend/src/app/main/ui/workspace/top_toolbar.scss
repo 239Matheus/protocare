@@ -66,7 +66,8 @@
   transition: opacity 0.3s ease;
 }
 
-.toolbar-option {
+.toolbar-option,
+.toolbar-modes {
   position: relative;
 }
 
@@ -128,4 +129,72 @@
   padding: 0;
   border-radius: $br-4;
   background-color: var(--color-accent-default);
+}
+
+// --- Proto Care: bottom toolbar, Figma style
+
+.toolbar.bottom {
+  --toolbar-gap-bottom: var(--sp-l);
+
+  inset-block: auto var(--toolbar-gap-bottom);
+  flex-direction: row;
+  padding: var(--sp-xs) var(--sp-s);
+  border: $b-1 solid var(--color-background-quaternary);
+  border-radius: $br-12;
+  box-shadow: 0 px2rem(8) px2rem(24) rgb(0 0 0 / 0.3);
+  transition:
+    transform 0.3s,
+    opacity 0.3s;
+
+  .toolbar-options {
+    gap: var(--sp-xxs);
+  }
+
+  .toolbar-separator {
+    margin: 0 var(--sp-xs);
+    block-size: $sz-24;
+  }
+
+  // Selected tool: solid accent, like Figma
+  .toolbar-option button[aria-pressed="true"] {
+    --button-bg-color: var(--color-accent-primary);
+    --button-fg-color: var(--color-background-primary);
+    --button-hover-bg-color: var(--color-accent-primary);
+    --button-hover-fg-color: var(--color-background-primary);
+    --button-active-bg-color: var(--color-accent-primary);
+    --button-active-fg-color: var(--color-background-primary);
+  }
+
+  // Flyouts open upwards
+  .toolbar-group-flyout {
+    inset-block: auto 140%;
+    margin-block: 0 var(--sp-xxs);
+  }
+
+  .toolbar-handler {
+    inset-block: 0 auto;
+    block-size: px2rem(8);
+  }
+
+  .toolbar-handler-indicator {
+    inline-size: $sz-32;
+    block-size: px2rem(3);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover .toolbar-handler-indicator {
+    opacity: 1;
+  }
+
+  &.hidden {
+    block-size: auto;
+    border-radius: $br-12;
+    border-block-start: $b-1 solid var(--color-background-quaternary);
+    transform: translate(-50%, calc(100% + var(--toolbar-gap-bottom) - #{$sz-12}));
+
+    .toolbar-handler-indicator {
+      opacity: 1;
+    }
+  }
 }

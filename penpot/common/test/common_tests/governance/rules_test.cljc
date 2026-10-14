@@ -253,3 +253,14 @@
     (t/is (= "typography.body.md" (get-in (ths/get-shape file' :body) [:applied-tokens :typography])))
     (t/is (empty? (filter :fix-available (by-rule audit' "token/radius"))))
     (t/is (= 1 (count (by-rule audit' "token/spacing"))))))
+
+(t/deftest results-carry-board-and-themes
+  (let [[_ audit] (run)
+        tiny      (first (filter #(= (thi/id :tiny) (:node-id %))
+                                 (by-rule audit "accessibility/text-size")))]
+    (t/testing "a finding knows the screen it belongs to"
+      (t/is (= (thi/id :screen) (:board-id tiny)))
+      (t/is (= "Screen" (:board-name tiny))))
+
+    (t/testing "the summary lists the active token themes"
+      (t/is (= ["light"] (get-in audit [:summary :themes]))))))

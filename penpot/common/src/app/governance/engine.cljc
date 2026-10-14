@@ -17,11 +17,12 @@
    [app.governance.rules.naming :as naming]
    [app.governance.rules.token-color :as token-color]
    [app.governance.rules.token-values :as token-values]
-   [app.governance.rules.usability :as usability]))
+   [app.governance.rules.usability :as usability]
+   [app.governance.shapes :as gsh]))
 
 (def version
   "Bump when rules or result shapes change; stored with every audit."
-  "0.2.0")
+  "0.3.0")
 
 (def default-rules
   (into [token-color/rule
@@ -64,6 +65,16 @@
      :by-page (count-by :page-id)
      :token-adherence (when (some? adherence) (double adherence))}))
 
+(defn- with-board
+  "Adds the top-level board (screen) of the node to a result, so reports
+   can go from file to screen to finding."
+  [objects-by-page result]
+  (let [objects (get objects-by-page (:page-id result))
+        board   (some->> (get objects (:node-id result)) (gsh/top-board objects))]
+    (assoc result
+           :board-id (:id board)
+           :board-name (:name board))))
+
 (defn run-audit
   "Evaluates `rules` (default: all) against `ctx`.
 
@@ -71,8 +82,14 @@
   [ctx & {:keys [rules config] :or {rules default-rules config {}}}]
   (let [rules    (configure rules config)
         outcomes (map (fn [r] [(:id r) ((:evaluate r) ctx r)]) rules)
-        results  (->> outcomes (mapcat (comp :results second)) (sort-results) (vec))
+        objects  (into {} (map (juxt :id :objects)) (:pages ctx))
+        results  (->> outcomes
+                      (mapcat (comp :results second))
+                      (map (partial with-board objects))
+                      (sort-results)
+                      (vec))
         stats    (into {} (map (fn [[id o]] [id (:stats o)])) outcomes)]
     {:results results
      :stats stats
-     :summary (summarize results stats)}))
+     :summary (assoc (summarize results stats)
+                     :themes (vec (:themes ctx)))}))

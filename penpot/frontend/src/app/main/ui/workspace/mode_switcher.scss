@@ -6,12 +6,11 @@
 
 @use "ds/_sizes.scss" as *;
 @use "ds/_borders.scss" as *;
-@use "ds/typography.scss" as *;
 
-// Same look as the sidebar tab switcher it replaces.
+// Inset group of icon buttons, like Figma's mode group at the end of
+// the toolbar.
 .mode-switcher {
-  display: grid;
-  grid-auto-flow: column;
+  display: flex;
   gap: var(--sp-xxs);
   padding: var(--sp-xxs);
   border-radius: $br-8;
@@ -19,34 +18,14 @@
 }
 
 .mode {
-  @include use-typography("headline-small");
-
-  appearance: none;
-  block-size: $sz-32;
-  padding: 0 var(--sp-m);
-  border: none;
-  border-radius: $br-8;
-  outline: $b-1 solid transparent;
-  background: var(--color-background-secondary);
-  color: var(--color-foreground-secondary);
-  text-transform: uppercase;
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--color-foreground-primary);
-  }
-
-  &:focus-visible {
-    outline-color: var(--color-accent-primary);
-  }
+  --button-hover-fg-color: var(--color-foreground-primary);
 }
 
 .mode-selected {
-  background: var(--color-background-quaternary);
-  color: var(--color-accent-primary);
-
-  &:hover {
-    color: var(--color-accent-primary);
-  }
+  --button-bg-color: var(--color-background-quaternary);
+  --button-fg-color: var(--color-accent-primary);
+  --button-hover-bg-color: var(--color-background-quaternary);
+  --button-hover-fg-color: var(--color-accent-primary);
+  --button-active-bg-color: var(--color-background-quaternary);
+  --button-active-fg-color: var(--color-accent-primary);
 }

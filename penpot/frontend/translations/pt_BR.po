@@ -4611,6 +4611,18 @@ msgstr "Expandir a barra lateral"
 msgid "workspace.sidebar.history"
 msgstr "Histórico"
 
+#: src/app/main/ui/workspace/sidebar.cljs
+msgid "workspace.sidebar.rail.file"
+msgstr "Arquivo"
+
+#: src/app/main/ui/workspace/sidebar.cljs
+msgid "workspace.sidebar.rail.assets"
+msgstr "Recursos"
+
+#: src/app/main/ui/workspace/sidebar.cljs
+msgid "workspace.sidebar.rail.tokens"
+msgstr "Tokens"
+
 #: src/app/main/ui/workspace/sidebar/layers.cljs:882, src/app/main/ui/workspace/sidebar.cljs:154, src/app/main/ui/workspace/sidebar.cljs:157, src/app/main/ui/workspace/sidebar.cljs:164
 msgid "workspace.sidebar.layers"
 msgstr "Camadas"
@@ -5338,6 +5350,78 @@ msgstr "Saúde do design - %s - Penpot"
 #: src/app/main/ui/dashboard/health.cljs
 msgid "dashboard.health.section"
 msgstr "Governança"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.explore"
+msgstr "Explorar"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.tab.people"
+msgstr "Pessoas"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.theme.all"
+msgstr "Todos os temas"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.board"
+msgstr "Tela (frame)"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.areas"
+msgstr "Abertos por área"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.person"
+msgstr "Pessoa"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.role"
+msgstr "Papel"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.col.last-activity"
+msgstr "Última atividade"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.no-board"
+msgstr "Fora das telas"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.file.last-audit"
+msgstr "Última auditoria %s · %s achados"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.file.no-audit"
+msgstr "Este arquivo ainda não foi auditado."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.file.open"
+msgstr "Abrir arquivo"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.board.count"
+msgstr "%s abertos de %s achados nesta tela"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.people.hint"
+msgstr "Quem editou arquivos ou trabalhou nas auditorias no período. O Proto Care não atribui achados a pessoas."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.people.empty"
+msgstr "Nenhuma atividade neste período."
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.role.designer"
+msgstr "Designer"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.role.design-ops"
+msgstr "Design Ops"
+
+#: src/app/main/ui/dashboard/health.cljs
+msgid "dashboard.health.role.ds-admin"
+msgstr "Admin do design system"
 
 #: src/app/main/ui/dashboard/health.cljs
 msgid "dashboard.health.title"

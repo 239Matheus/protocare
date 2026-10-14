@@ -89,6 +89,16 @@
           (conj out id)
           (recur (:parent-id parent) (conj out id)))))))
 
+(defn top-board
+  "Top-level board (a screen) containing `shape`, the shape itself when it
+   is one, or nil for shapes outside any board."
+  [objects shape]
+  (->> (cons (:id shape) (ancestors-of objects shape))
+       (keep #(get objects %))
+       (filter cfh/frame-shape?)
+       (remove root?)
+       (last)))
+
 ;; --- Geometry
 
 (defn bounds

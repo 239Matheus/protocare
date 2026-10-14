@@ -17,7 +17,6 @@
    on task) are planned in docs/03-analytics-plan.md; these rules only
    check what the file itself can tell."
   (:require
-   [app.common.files.helpers :as cfh]
    [app.governance.rule :as rule]
    [app.governance.shapes :as gsh]))
 
@@ -28,16 +27,6 @@
         interaction (:interactions shape)
         :when (= :navigate (:action-type interaction))]
     [shape interaction]))
-
-(defn- top-board
-  "Top-level board containing `shape` (or the shape itself)."
-  [objects shape]
-  (let [ids (cons (:id shape) (gsh/ancestors-of objects shape))]
-    (->> ids
-         (keep #(get objects %))
-         (filter cfh/frame-shape?)
-         (remove gsh/root?)
-         (last))))
 
 (defn- evaluate-broken-link
   [ctx rule]
@@ -69,7 +58,7 @@
         (for [page (:pages ctx)
               :let [navs (navigations page)]
               :when (and (seq navs) (empty? (:flows page)))
-              :let [board (or (top-board (:objects page) (ffirst navs)) (ffirst navs))]]
+              :let [board (or (gsh/top-board (:objects page) (ffirst navs)) (ffirst navs))]]
           (rule/make-result
            rule (:id page) board
            {:attribute :flow
@@ -95,7 +84,7 @@
                     dests   (set (keep (comp :destination second) (navigations page)))
                     exits   (set (for [shape (vals objects)
                                        :when (seq (:interactions shape))]
-                                   (:id (top-board objects shape))))]
+                                   (:id (gsh/top-board objects shape))))]
               dest dests
               :let [board (get objects dest)]
               :when (and board (not (contains? exits dest)))]

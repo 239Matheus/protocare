@@ -47,6 +47,10 @@
 
 ;; --- Left Sidebar (Component)
 
+(def ^:private rail-width
+  "Width of the Proto Care icon rail, in px (see `.rail` in sidebar.scss)."
+  56)
+
 (def ^:private toggle-collapse-left-sidebar
   (partial st/emit! (dw/toggle-layout-flag :collapse-left-sidebar)))
 
@@ -116,6 +120,49 @@
                           :scroll-store scroll-store}]]))
 
 
+(defn- rail?
+  "Proto Care: the left panel sections are a vertical icon rail, like
+   Figma, instead of the tab switcher."
+  []
+  (contains? cf/flags :governance))
+
+(mf/defc rail-item*
+  {::mf/private true}
+  [{:keys [id icon label selected on-change]}]
+  (let [on-click (mf/use-fn (mf/deps id on-change) #(on-change id))]
+    [:button {:type "button"
+              :role "tab"
+              :aria-selected selected
+              :title label
+              :data-testid (dm/str "rail-" id)
+              :class (stl/css-case :rail-item true
+                                   :rail-item-selected selected)
+              :on-click on-click}
+     [:span {:class (stl/css :rail-icon)}
+      [:> icon* {:icon-id icon :size "m"}]]
+     [:span {:class (stl/css :rail-label)} label]]))
+
+(mf/defc rail*
+  {::mf/private true}
+  [{:keys [items selected on-change]}]
+  [:nav {:class (stl/css :rail)
+         :role "tablist"
+         :aria-orientation "vertical"}
+   [:div {:class (stl/css :rail-items)}
+    (for [{:keys [id icon label]} items]
+      [:> rail-item* {:key id
+                      :id id
+                      :icon icon
+                      :label label
+                      :selected (= id selected)
+                      :on-change on-change}])]
+   [:div {:class (stl/css :rail-footer)}
+    [:> icon-button* {:variant "ghost"
+                      :icon i/arrow-left
+                      :tooltip-placement "right"
+                      :aria-label (tr "workspace.sidebar.collapse")
+                      :on-click toggle-collapse-left-sidebar}]]])
+
 (mf/defc left-sidebar*
   {::mf/memo true}
   [{:keys [layout file tokens-lib tokens-status active-tokens resolved-active-tokens]}]
@@ -166,8 +213,20 @@
                {:label (tr "workspace.toolbar.assets")
                 :id "assets"}])))
 
+        rail-items
+        (mf/with-memo [mode-inspect? design-tokens?]
+          (cond-> [{:id "layers" :icon i/layers :label (tr "workspace.sidebar.rail.file")}]
+            (not mode-inspect?)
+            (conj {:id "assets" :icon i/component :label (tr "workspace.sidebar.rail.assets")})
+
+            (and (not mode-inspect?) design-tokens?)
+            (conj {:id "tokens" :icon i/tokens :label (tr "workspace.sidebar.rail.tokens")})))
+
+        with-rail?     (rail?)
+
         aside-class
         (stl/css-case :left-sidebar      true
+                      :with-rail         with-rail?
                       :global/two-row    (<= width 300)
                       :global/three-row  (and (> width 300) (<= width 400))
                       :global/four-row   (> width 400))
@@ -185,6 +244,11 @@
               :on-context-menu dom/prevent-default-context-menu
               :style {:--left-sidebar-width (dm/str width "px")}}
 
+      (when (and with-rail? (not shortcuts?) (not show-debug?))
+        [:> rail* {:items rail-items
+                   :selected (name section)
+                   :on-change on-tab-change}])
+
       [:> left-header* {:file file
                         :layout layout
                         :project project
@@ -201,6 +265,27 @@
 
         (true? show-debug?)
         [:> debug-panel* {:class (stl/css :left-sidebar-content)}]
+
+        with-rail?
+        [:div {:class (stl/css :left-sidebar-content :rail-panel)}
+         (case section
+           :assets
+           [:> assets-toolbox* {:size (- width 58 rail-width)
+                                :file-id file-id
+                                :scroll-store scroll-store*}]
+
+           :tokens
+           [:> tokens-sidebar-tab*
+            {:tokens-lib tokens-lib
+             :tokens-status tokens-status
+             :active-tokens active-tokens
+             :resolved-active-tokens resolved-active-tokens
+             :scroll-store scroll-store*}]
+
+           :layers
+           [:> layers-content* {:layout layout
+                                :width (- width rail-width)
+                                :scroll-store scroll-store*}])]
 
         :else
         [:div {:class (stl/css  :left-sidebar-content)}

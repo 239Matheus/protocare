@@ -136,6 +136,16 @@ Plano original:
 - Rótulos de área e severidade passaram para `governance_texts.cljs` (compartilhados com o painel de auditoria).
 - Sem ranking de pessoas. Validado no devenv.
 
+## Fase 5.1 — Macro e micro, temas e interface estilo Figma (2026-10-14)
+
+- Engine `0.3.0`: cada achado traz a tela (board de topo) onde está (`board-id`, `board-name`), e o resumo traz os temas de tokens ativos (`themes`, ex.: `Mode/Light`).
+- Migração `0159`: `governance_audit.themes` (text[], índice GIN) e `governance_audit_result.board_id/board_name`.
+- Filtro por tema em `get-team-health`, `get-project-health` e `get-governance-metrics` (`theme`); `get-team-health` lista só os temas em uso (`themes`).
+- RPCs novas: `get-file-health` (micro: telas de um arquivo e seus achados) e `get-governance-people` (quem editou arquivos ou trabalhou nas auditorias, com papel, número de arquivos e última atividade; nenhum achado atribuído a pessoas).
+- Dashboard: aba Explorar (projetos > arquivos > telas > achados, com breadcrumb e "Abrir arquivo"), aba Pessoas, filtro de tema (só aparece quando há temas em uso).
+- Workspace: barra de ferramentas embaixo, centralizada, estilo Figma (ferramenta ativa preenchida, flyouts abrem para cima) e modos como ícones com tooltip (Design, Protótipo, Inspecionar, Auditoria). Barra lateral esquerda virou um trilho vertical de ícones (Arquivo, Recursos, Tokens) com botão de recolher.
+- Script `penpot/protocare/scripts/telas_de_cadastro.clj` (REPL do backend): publica o Proto Care DS, liga ao arquivo, usa os tokens do DS e desenha o fluxo Login, Criar conta, Conta criada, Recuperar senha e Link enviado, com cópias de componentes, protótipo e três fluxos. Recusa desenhar sobre uma página com conteúdo e cria um snapshot antes.
+
 ## Fase 6 — Mais regras
 
 Feitas na Fase 4.3: `token/spacing`, `token/radius`, `token/typography`, `accessibility/*`, `layout/*`, `naming/*`, `usability/*`.

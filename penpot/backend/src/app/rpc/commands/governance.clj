@@ -324,6 +324,7 @@
     (-> row
         (d/update-when :summary db/decode-transit-pgobject)
         (d/update-when :stats db/decode-transit-pgobject)
+        (d/update-when :themes #(if (db/pgarray? %) (db/decode-pgarray % []) %))
         (cond-> (nil? summary) (assoc :summary {})
                 (nil? stats) (assoc :stats {})))))
 
@@ -335,6 +336,8 @@
           (merge (select-keys row [:id :audit-id :status :first-seen-at]))
           (assoc :node-id (:node-id row)
                  :page-id (:page-id row)
+                 :board-id (or (:board-id payload) (:board-id row))
+                 :board-name (or (:board-name payload) (:board-name row))
                  :area (or (:area row) (area-name (:category row))))))))
 
 (defn- result-key
@@ -403,6 +406,7 @@
                                    :file-vern (:vern file 0)
                                    :page-id page-id
                                    :engine-version engine/version
+                                   :themes (db/create-array conn "text" (get-in audit [:summary :themes] []))
                                    :summary (db/tjson summary)
                                    :stats (db/tjson (:stats audit))})
         audit-id      (:id row)
@@ -419,6 +423,8 @@
                                  :page-id (:page-id result)
                                  :node-id (:node-id result)
                                  :node-name (:node-name result)
+                                 :board-id (:board-id result)
+                                 :board-name (:board-name result)
                                  :attribute (some-> (:attribute result) name)
                                  :fix-available (boolean (:fix-available result))
                                  :status status
@@ -441,6 +447,7 @@
                                  :fixable (:fixable summary 0)
                                  :resolved-since-previous resolved
                                  :token-adherence (:token-adherence summary)
+                                 :themes (:themes summary [])
                                  :by-area (:by-area summary {})
                                  :by-severity (update-keys (:by-severity summary {}) name)}})
     (doseq [prev resolved-res]
@@ -574,28 +581,37 @@
 ;; HEALTH (aggregated, no per-person ranking)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def ^:private sql:theme-filter
+  "Keeps the rows of the latest audits whose file had the theme active.
+   Filtering after DISTINCT ON keeps the meaning \"files whose current
+   audit uses this theme\"."
+  "SELECT * FROM (%s) AS latest
+    WHERE (?::text IS NULL OR ? = ANY(latest.themes))")
+
 (def ^:private sql:latest-audits-by-project
-  "SELECT DISTINCT ON (a.file_id)
-          a.id, a.file_id, a.project_id, a.team_id, a.created_at,
-          a.summary, f.name AS file_name
-     FROM governance_audit AS a
-     JOIN file AS f ON (f.id = a.file_id)
-    WHERE a.project_id = ?
-      AND f.deleted_at IS NULL
-    ORDER BY a.file_id, a.created_at DESC")
+  (format sql:theme-filter
+          "SELECT DISTINCT ON (a.file_id)
+                  a.id, a.file_id, a.project_id, a.team_id, a.created_at,
+                  a.summary, a.themes, f.name AS file_name
+             FROM governance_audit AS a
+             JOIN file AS f ON (f.id = a.file_id)
+            WHERE a.project_id = ?
+              AND f.deleted_at IS NULL
+            ORDER BY a.file_id, a.created_at DESC"))
 
 (def ^:private sql:latest-audits-by-team
-  "SELECT DISTINCT ON (a.file_id)
-          a.id, a.file_id, a.project_id, a.team_id, a.created_at,
-          a.summary, f.name AS file_name, p.name AS project_name,
-          p.is_default AS project_is_default
-     FROM governance_audit AS a
-     JOIN file AS f ON (f.id = a.file_id)
-     JOIN project AS p ON (p.id = a.project_id)
-    WHERE a.team_id = ?
-      AND f.deleted_at IS NULL
-      AND p.deleted_at IS NULL
-    ORDER BY a.file_id, a.created_at DESC")
+  (format sql:theme-filter
+          "SELECT DISTINCT ON (a.file_id)
+                  a.id, a.file_id, a.project_id, a.team_id, a.created_at,
+                  a.summary, a.themes, f.name AS file_name, p.name AS project_name,
+                  p.is_default AS project_is_default
+             FROM governance_audit AS a
+             JOIN file AS f ON (f.id = a.file_id)
+             JOIN project AS p ON (p.id = a.project_id)
+            WHERE a.team_id = ?
+              AND f.deleted_at IS NULL
+              AND p.deleted_at IS NULL
+            ORDER BY a.file_id, a.created_at DESC"))
 
 (def ^:private sql:result-counts
   "SELECT audit_id, severity, category, status, fix_available, count(*) AS total
@@ -609,6 +625,7 @@
      JOIN file AS f ON (f.id = a.file_id)
     WHERE a.%s = ?
       AND f.deleted_at IS NULL
+      AND (?::text IS NULL OR ? = ANY(a.themes))
     ORDER BY a.created_at DESC
     LIMIT ?")
 
@@ -640,14 +657,18 @@
                   audits)}))
 
 (defn- recent-audits
-  [conn column id limit]
-  (->> (db/exec! conn [(format sql:recent-audits column) id limit])
+  [conn column id theme limit]
+  (->> (db/exec! conn [(format sql:recent-audits column) id theme theme limit])
        (mapv decode-audit-row)
        (mapv #(select-keys % [:id :file-id :file-name :project-id :created-at :summary]))))
 
+(def ^:private schema:theme
+  [:string {:max 250}])
+
 (def ^:private schema:get-project-health
   [:map {:title "get-project-health"}
-   [:project-id ::sm/uuid]])
+   [:project-id ::sm/uuid]
+   [:theme {:optional true} schema:theme]])
 
 (sv/defmethod ::get-project-health
   "Aggregated design health of a project, from the latest audit of each
@@ -656,19 +677,30 @@
    ::doc/module :governance
    ::sm/params schema:get-project-health
    ::db/transaction true}
-  [{:keys [::db/conn]} {:keys [::rpc/profile-id project-id]}]
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id project-id theme]}]
   (let [team-id (perms/get-team-id-for-project conn project-id)]
     (when (nil? team-id)
       (ex/raise :type :not-found :code :object-not-found :hint "not found"))
     (check-health-permissions! conn profile-id team-id)
-    (-> (health-from conn (db/exec! conn [sql:latest-audits-by-project project-id]))
+    (-> (health-from conn (db/exec! conn [sql:latest-audits-by-project project-id theme theme]))
         (assoc :project-id project-id
                :team-id team-id
-               :recent (recent-audits conn "project_id" project-id 30)))))
+               :theme theme
+               :recent (recent-audits conn "project_id" project-id theme 30)))))
 
 (def ^:private schema:get-team-health
   [:map {:title "get-team-health"}
-   [:team-id ::sm/uuid]])
+   [:team-id ::sm/uuid]
+   [:theme {:optional true} schema:theme]])
+
+(defn- themes-in-use
+  "Token themes active in the latest audit of at least one file: the
+   themes worth filtering by."
+  [audits]
+  (->> audits
+       (mapcat #(db/decode-pgarray (:themes %) []))
+       (into (sorted-set))
+       (vec)))
 
 (sv/defmethod ::get-team-health
   "Aggregated design health of a team, overall and per project."
@@ -676,9 +708,12 @@
    ::doc/module :governance
    ::sm/params schema:get-team-health
    ::db/transaction true}
-  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id]}]
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id theme]}]
   (check-health-permissions! conn profile-id team-id)
-  (let [audits   (db/exec! conn [sql:latest-audits-by-team team-id])
+  (let [all      (db/exec! conn [sql:latest-audits-by-team team-id nil nil])
+        audits   (if theme
+                   (filterv #(some #{theme} (db/decode-pgarray (:themes %) [])) all)
+                   all)
         projects (->> (group-by :project-id audits)
                       (mapv (fn [[project-id rows]]
                               (-> (health-from conn rows)
@@ -688,8 +723,63 @@
                                          :is-default (boolean (:project-is-default (first rows))))))))]
     (-> (health-from conn audits)
         (assoc :team-id team-id
+               :theme theme
+               :themes (themes-in-use all)
                :projects projects
-               :recent (recent-audits conn "team_id" team-id 30)))))
+               :recent (recent-audits conn "team_id" team-id theme 30)))))
+
+(def ^:private sql:file-info
+  "SELECT f.id AS file_id, f.name AS file_name, p.id AS project_id,
+          p.name AS project_name, p.is_default AS project_is_default, p.team_id
+     FROM file AS f
+     JOIN project AS p ON (p.id = f.project_id)
+    WHERE f.id = ?
+      AND f.deleted_at IS NULL")
+
+(defn- board-summary
+  "Open findings of one board (screen) of a file."
+  [[board-id results]]
+  (let [open (filter #(= "open" (:status %)) results)]
+    {:board-id board-id
+     :board-name (:board-name (first results))
+     :page-id (:page-id (first results))
+     :open (count open)
+     :fixable (count (filter :fix-available open))
+     :total (count results)
+     :by-area (frequencies (keep :area open))
+     :by-severity (frequencies (map #(some-> (:severity %) name) open))}))
+
+(def ^:private schema:get-file-health
+  [:map {:title "get-file-health"}
+   [:file-id ::sm/uuid]])
+
+(sv/defmethod ::get-file-health
+  "Micro view of one file for the design health dashboard: its latest
+   audit, the open findings per board (screen) and every finding of that
+   audit. Same permissions as the team health."
+  {::doc/added "2.17"
+   ::doc/module :governance
+   ::sm/params schema:get-file-health
+   ::db/transaction true}
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id file-id]}]
+  (let [info (db/exec-one! conn [sql:file-info file-id])]
+    (when (nil? info)
+      (ex/raise :type :not-found :code :object-not-found :hint "not found"))
+    (check-health-permissions! conn profile-id (:team-id info))
+    (let [audit   (get-latest-audit conn file-id)
+          results (if audit (get-audit-results conn (:id audit)) [])
+          boards  (->> results
+                       (group-by :board-id)
+                       (map board-summary)
+                       (sort-by (juxt (comp - :open) #(str (:board-name %))))
+                       (vec))]
+      (-> info
+          (update :project-is-default boolean)
+          (assoc :audit (when audit
+                          (-> (select-keys audit [:id :created-at :summary :engine-version])
+                              (assoc :themes (vec (:themes audit)))))
+                 :boards boards
+                 :results results)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; EVIDENCE (events and metrics, see docs/03-analytics-plan.md)
@@ -759,38 +849,48 @@
                          project-id project-id file-id file-id types types limit])
          (mapv #(update % :props db/decode-json-pgobject)))))
 
+(def ^:private sql:event-theme
+  "Events of audits whose file had the theme active (events without an
+   audit, like policy updates, are left out when a theme is selected)."
+  "(?::text IS NULL OR EXISTS (SELECT 1 FROM governance_audit AS ga
+                                WHERE ga.id = governance_event.audit_id
+                                  AND ? = ANY(ga.themes)))")
+
 (def ^:private sql:resolution-by-area
-  "SELECT area, type, props->>'to' AS to_status, count(*) AS total,
-          percentile_cont(0.5) WITHIN GROUP
-            (ORDER BY (props->>'open-seconds')::numeric) AS median_open_seconds
-     FROM governance_event
-    WHERE team_id = ?
-      AND created_at >= ?
-      AND (?::uuid IS NULL OR project_id = ?)
-      AND type IN ('finding-resolved', 'result-status')
-    GROUP BY area, type, props->>'to'")
+  (str "SELECT area, type, props->>'to' AS to_status, count(*) AS total,
+               percentile_cont(0.5) WITHIN GROUP
+                 (ORDER BY (props->>'open-seconds')::numeric) AS median_open_seconds
+          FROM governance_event
+         WHERE team_id = ?
+           AND created_at >= ?
+           AND (?::uuid IS NULL OR project_id = ?)
+           AND type IN ('finding-resolved', 'result-status')
+           AND " sql:event-theme "
+         GROUP BY area, type, props->>'to'"))
 
 (def ^:private sql:weekly
-  "SELECT date_trunc('week', created_at) AS week,
-          count(*) FILTER (WHERE type = 'audit-run') AS audits,
-          count(DISTINCT file_id) FILTER (WHERE type = 'audit-run') AS files,
-          coalesce(sum((props->>'total')::int) FILTER (WHERE type = 'audit-run'), 0) AS findings,
-          count(*) FILTER (WHERE type = 'finding-resolved') AS resolved
-     FROM governance_event
-    WHERE team_id = ?
-      AND created_at >= ?
-      AND (?::uuid IS NULL OR project_id = ?)
-    GROUP BY 1
-    ORDER BY 1")
+  (str "SELECT date_trunc('week', created_at) AS week,
+               count(*) FILTER (WHERE type = 'audit-run') AS audits,
+               count(DISTINCT file_id) FILTER (WHERE type = 'audit-run') AS files,
+               coalesce(sum((props->>'total')::int) FILTER (WHERE type = 'audit-run'), 0) AS findings,
+               count(*) FILTER (WHERE type = 'finding-resolved') AS resolved
+          FROM governance_event
+         WHERE team_id = ?
+           AND created_at >= ?
+           AND (?::uuid IS NULL OR project_id = ?)
+           AND " sql:event-theme "
+         GROUP BY 1
+         ORDER BY 1"))
 
 (def ^:private sql:latest-audit-ids
-  "SELECT DISTINCT ON (a.file_id) a.id
-     FROM governance_audit AS a
-     JOIN file AS f ON (f.id = a.file_id)
-    WHERE a.team_id = ?
-      AND (?::uuid IS NULL OR a.project_id = ?)
-      AND f.deleted_at IS NULL
-    ORDER BY a.file_id, a.created_at DESC")
+  (format sql:theme-filter
+          "SELECT DISTINCT ON (a.file_id) a.id, a.themes
+             FROM governance_audit AS a
+             JOIN file AS f ON (f.id = a.file_id)
+            WHERE a.team_id = ?
+              AND (?::uuid IS NULL OR a.project_id = ?)
+              AND f.deleted_at IS NULL
+            ORDER BY a.file_id, a.created_at DESC"))
 
 (def ^:private sql:open-by-rule
   "SELECT rule_id, category, severity, count(*) AS total
@@ -800,14 +900,15 @@
     GROUP BY rule_id, category, severity")
 
 (def ^:private sql:resolution-by-rule
-  "SELECT rule_id, area, type, props->>'to' AS to_status, count(*) AS total
-     FROM governance_event
-    WHERE team_id = ?
-      AND created_at >= ?
-      AND (?::uuid IS NULL OR project_id = ?)
-      AND type IN ('finding-resolved', 'result-status')
-      AND rule_id IS NOT NULL
-    GROUP BY rule_id, area, type, props->>'to'")
+  (str "SELECT rule_id, area, type, props->>'to' AS to_status, count(*) AS total
+          FROM governance_event
+         WHERE team_id = ?
+           AND created_at >= ?
+           AND (?::uuid IS NULL OR project_id = ?)
+           AND type IN ('finding-resolved', 'result-status')
+           AND rule_id IS NOT NULL
+           AND " sql:event-theme "
+         GROUP BY rule_id, area, type, props->>'to'"))
 
 (defn- ratio
   [n d]
@@ -874,6 +975,7 @@
   [:map {:title "get-governance-metrics"}
    [:team-id ::sm/uuid]
    [:project-id {:optional true} ::sm/uuid]
+   [:theme {:optional true} schema:theme]
    [:since {:optional true} ct/schema:inst]])
 
 (sv/defmethod ::get-governance-metrics
@@ -887,26 +989,29 @@
    ::doc/module :governance
    ::sm/params schema:get-governance-metrics
    ::db/transaction true}
-  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id project-id since]}]
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id project-id theme since]}]
   (check-health-permissions! conn profile-id team-id)
   (check-project-in-team! conn project-id team-id)
   (let [since      (since-or-default since)
-        resolution (db/exec! conn [sql:resolution-by-area team-id since project-id project-id])
-        audit-ids  (mapv :id (db/exec! conn [sql:latest-audit-ids team-id project-id project-id]))
+        resolution (db/exec! conn [sql:resolution-by-area team-id since project-id project-id
+                                   theme theme])
+        audit-ids  (mapv :id (db/exec! conn [sql:latest-audit-ids team-id project-id project-id
+                                             theme theme]))
         open       (if (seq audit-ids)
                      (db/exec! conn [sql:open-by-rule (db/create-array conn "uuid" audit-ids)])
                      [])
         by-rule    (rule-metrics open (db/exec! conn [sql:resolution-by-rule team-id since
-                                                      project-id project-id]))
+                                                      project-id project-id theme theme]))
         open-area  (reduce (fn [acc {:keys [category total]}]
                              (update acc (or (area-name category) "other") (fnil + 0) total))
                            {} open)
-        weekly     (db/exec! conn [sql:weekly team-id since project-id project-id])
+        weekly     (db/exec! conn [sql:weekly team-id since project-id project-id theme theme])
         by-area    (area-metrics resolution open-area)
         n-open     (reduce + 0 (map :open (vals by-area)))
         n-res      (reduce + 0 (map :resolved (vals by-area)))]
     {:team-id team-id
      :project-id project-id
+     :theme theme
      :since since
      :files-audited (count audit-ids)
      :audits (reduce + 0 (map :audits weekly))
@@ -919,6 +1024,69 @@
                           {} open)
      :by-rule by-rule
      :weekly (mapv #(select-keys % [:week :audits :files :findings :resolved]) weekly)}))
+
+(def ^:private sql:people
+  "WITH activity AS (
+     SELECT fc.profile_id, fc.file_id, fc.created_at
+       FROM file_change AS fc
+       JOIN file AS f ON (f.id = fc.file_id)
+       JOIN project AS p ON (p.id = f.project_id)
+      WHERE p.team_id = ?
+        AND fc.created_at >= ?
+        AND fc.profile_id IS NOT NULL
+        AND f.deleted_at IS NULL
+        AND (?::uuid IS NULL OR p.id = ?)
+        AND (?::uuid IS NULL OR f.id = ?)
+     UNION ALL
+     SELECT e.profile_id, e.file_id, e.created_at
+       FROM governance_event AS e
+      WHERE e.team_id = ?
+        AND e.created_at >= ?
+        AND e.profile_id IS NOT NULL
+        AND e.file_id IS NOT NULL
+        AND (?::uuid IS NULL OR e.project_id = ?)
+        AND (?::uuid IS NULL OR e.file_id = ?)
+   )
+   SELECT pr.id AS profile_id, pr.fullname, pr.photo_id,
+          coalesce(gr.role, 'designer') AS role,
+          count(DISTINCT a.file_id) AS files,
+          array_agg(DISTINCT a.file_id) AS file_ids,
+          max(a.created_at) AS last_activity_at
+     FROM activity AS a
+     JOIN profile AS pr ON (pr.id = a.profile_id)
+     LEFT JOIN governance_role AS gr ON (gr.team_id = ? AND gr.profile_id = pr.id)
+    GROUP BY pr.id, pr.fullname, pr.photo_id, gr.role
+    ORDER BY lower(pr.fullname)")
+
+(def ^:private schema:get-governance-people
+  [:map {:title "get-governance-people"}
+   [:team-id ::sm/uuid]
+   [:project-id {:optional true} ::sm/uuid]
+   [:file-id {:optional true} ::sm/uuid]
+   [:since {:optional true} ct/schema:inst]])
+
+(sv/defmethod ::get-governance-people
+  "People involved in a team, project or file over a period: who edited
+   files or worked on audits, with their governance role, how many files
+   and their last activity. Sorted by name; no quality numbers are
+   attributed to people (no ranking). Same permissions as the team
+   health."
+  {::doc/added "2.17"
+   ::doc/module :governance
+   ::sm/params schema:get-governance-people
+   ::db/transaction true}
+  [{:keys [::db/conn]} {:keys [::rpc/profile-id team-id project-id file-id since]}]
+  (check-health-permissions! conn profile-id team-id)
+  (check-project-in-team! conn project-id team-id)
+  (when (and file-id
+             (not= team-id (:team-id (db/exec-one! conn [sql:file-info file-id]))))
+    (ex/raise :type :not-found :code :object-not-found :hint "not found"))
+  (let [since (since-or-default since)]
+    (->> (db/exec! conn [sql:people
+                         team-id since project-id project-id file-id file-id
+                         team-id since project-id project-id file-id file-id
+                         team-id])
+         (mapv #(update % :file-ids db/decode-pgarray [])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; BUNDLED DESIGN SYSTEM

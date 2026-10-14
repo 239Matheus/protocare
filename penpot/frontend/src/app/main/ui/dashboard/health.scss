@@ -358,3 +358,173 @@
     color: var(--color-foreground-primary);
   }
 }
+
+// --- Explore (macro to micro)
+
+.explore {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-m);
+  margin-block-start: var(--sp-l);
+
+  .table {
+    margin-block-start: 0;
+  }
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-xs);
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-xs);
+}
+
+.crumb-link,
+.crumb-current,
+.crumb-sep {
+  @include t.use-typography("body-medium");
+}
+
+.crumb-link {
+  appearance: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent-primary);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.crumb-current {
+  color: var(--color-foreground-primary);
+}
+
+.crumb-sep {
+  color: var(--color-foreground-secondary);
+}
+
+.file-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-m);
+}
+
+.file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xs);
+}
+
+.chip {
+  @include t.use-typography("body-small");
+
+  padding: var(--sp-xxs) var(--sp-s);
+  border-radius: $br-8;
+  background: var(--color-background-quaternary);
+  color: var(--color-foreground-primary);
+}
+
+.findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-s);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+  padding: var(--sp-m);
+  border: $b-1 solid var(--color-background-quaternary);
+  border-radius: $br-8;
+  background: var(--color-background-tertiary);
+}
+
+.finding-closed {
+  opacity: 0.6;
+}
+
+.finding-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-s);
+}
+
+.sev {
+  @include t.use-typography("headline-small");
+
+  padding: var(--sp-xxs) var(--sp-s);
+  border-radius: $br-4;
+  background: var(--color-background-quaternary);
+  color: var(--color-foreground-secondary);
+}
+
+.sev-critical,
+.sev-high {
+  color: var(--color-foreground-error);
+}
+
+.finding-rule {
+  @include t.use-typography("body-medium");
+
+  color: var(--color-foreground-primary);
+}
+
+.finding-area,
+.finding-status {
+  @include t.use-typography("body-small");
+
+  color: var(--color-foreground-secondary);
+}
+
+.finding-layer,
+.finding-message {
+  @include t.use-typography("body-medium");
+
+  margin: 0;
+  color: var(--color-foreground-secondary);
+}
+
+.finding-layer {
+  color: var(--color-foreground-primary);
+}
+
+// --- People
+
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-s);
+}
+
+.avatar {
+  @include t.use-typography("body-small");
+
+  display: inline-grid;
+  place-items: center;
+  inline-size: $sz-24;
+  block-size: $sz-24;
+  border-radius: 50%;
+  background: var(--color-background-quaternary);
+  color: var(--color-foreground-primary);
+}

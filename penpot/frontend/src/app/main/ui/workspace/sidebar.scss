@@ -119,6 +119,100 @@
   grid-area: header;
 }
 
+// --- Proto Care: vertical icon rail, Figma style
+
+.left-sidebar.with-rail {
+  grid-template-areas:
+    "rail header header"
+    "rail content resize";
+  grid-template-rows: px2rem(52) 1fr;
+  grid-template-columns: px2rem(56) 1fr 0;
+}
+
+.rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--sp-s) var(--sp-xxs);
+  border-inline-end: $b-1 solid var(--color-background-quaternary);
+  background-color: var(--color-background-primary);
+}
+
+.rail-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-s);
+}
+
+.rail-item {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-xxs);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-foreground-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-foreground-primary);
+
+    .rail-icon {
+      background-color: var(--color-background-tertiary);
+    }
+  }
+
+  &:focus-visible .rail-icon {
+    outline: $b-1 solid var(--color-accent-primary);
+  }
+}
+
+.rail-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: $sz-32;
+  block-size: $sz-32;
+  border-radius: $br-8;
+}
+
+.rail-label {
+  max-inline-size: 100%;
+  font-size: px2rem(10);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-item-selected {
+  color: var(--color-foreground-primary);
+
+  .rail-icon {
+    background-color: var(--color-background-quaternary);
+    color: var(--color-accent-primary);
+  }
+
+  &:hover .rail-icon {
+    background-color: var(--color-background-quaternary);
+  }
+}
+
+.rail-footer {
+  display: flex;
+  justify-content: center;
+}
+
+.rail-panel {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
 .left-sidebar-content {
   grid-area: content;
   inset-inline-end: calc(-1 * var(--sp-s));

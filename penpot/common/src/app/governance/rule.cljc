@@ -59,6 +59,9 @@
    [:page-id ::sm/uuid]
    [:node-id ::sm/uuid]
    [:node-name {:optional true} :string]
+   ;; Top-level board (screen) that contains the node, set by the engine
+   [:board-id {:optional true} [:maybe ::sm/uuid]]
+   [:board-name {:optional true} [:maybe :string]]
    [:attribute {:optional true} :keyword]
    [:severity schema:severity]
    [:message :string]

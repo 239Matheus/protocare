@@ -105,8 +105,12 @@ O brief pede uma métrica conceitual sem fórmula fechada. Proposta v0, para cal
 | Tendências | Linhas semanais de detectados e resolvidos; tempo mediano até resolver por área | `get-governance-metrics.weekly` e `by-area` |
 | Projetos | Tabela por projeto com as mesmas colunas da Overview | `get-team-health.projects` + métricas com `project-id` |
 | Áreas | Para cada uma das cinco áreas: abertos, resolvidos, taxa de correção, tempo até resolver, corrigidos pelo painel, ignorados | `get-governance-metrics.by-area` |
+| Explorar | Do macro ao micro: projetos, arquivos, telas (boards de topo) e os achados de cada tela | `get-team-health`, `get-project-health`, `get-file-health` |
+| Pessoas | Quem editou arquivos ou trabalhou nas auditorias no período, com papel, número de arquivos e última atividade, em ordem alfabética. Nenhum achado é atribuído a pessoas | `get-governance-people` |
 | Regras | Para o admin do DS: achados, ignorados e reabertos por regra, para calibrar a política | `get-governance-events` agregado |
 | Trilha | Lista de eventos de um arquivo (quem auditou, o que foi resolvido e quando) | `get-governance-events` com `file-id` |
+
+Filtro por tema do design system: cada auditoria guarda os temas de tokens ativos no arquivo (`governance_audit.themes`). O filtro só aparece quando algum arquivo auditado usa temas e lista só os temas em uso. Com um tema escolhido, as métricas consideram os arquivos cuja auditoria mais recente usa o tema e os eventos dessas auditorias.
 
 Implementação: rota `dashboard-health`, item "Saúde do design" na seção "Governança" da sidebar (só aparece para owner/admin, `design-ops` e `ds-admin`), página `frontend/src/app/main/ui/dashboard/health.cljs`. Filtros de projeto e período (30, 90 ou 180 dias); clicar num projeto filtra o dashboard e a aba Projetos passa a listar os arquivos. Gráficos semanais mostram semanas sem atividade como zero. A visão "Trilha" por arquivo fica para a fase D, junto com a exportação.
 
