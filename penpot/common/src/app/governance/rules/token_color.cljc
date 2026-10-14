@@ -21,9 +21,43 @@
    [app.common.types.text :as txt]
    [app.common.uuid :as uuid]
    [app.governance.context :as gctx]
-   [app.governance.rule :as rule]))
+   [app.governance.rule :as rule]
+   [cuerdas.core :as str]))
 
 (def rule-id "token/color")
+
+;; --- Candidate ranking
+;;
+;; One hex value often maps to several tokens (#FFFFFF can be a surface,
+;; an inverse text and a palette step). The suggestion must be the token
+;; a designer would pick, so candidates are ranked deterministically:
+;; semantic tokens before palette tokens, then the role that matches the
+;; attribute (text, border or background), then by name.
+
+(def default-color-roles
+  "Role segments (second segment of `color.<role>.*`) preferred per slot.
+   Overridable with the `:color-roles` option."
+  {:text   #{"text"}
+   :stroke #{"border"}
+   :fill   #{"bg" "action" "feedback"}})
+
+(defn- slot-kind
+  [shape attribute]
+  (cond
+    (= attribute :stroke-color) :stroke
+    (cfh/text-shape? shape)     :text
+    :else                       :fill))
+
+(defn rank-candidates
+  "Sorts token names from best to worst suggestion for a slot kind."
+  [names kind roles]
+  (let [preferred (get roles kind #{})]
+    (vec (sort-by (fn [name]
+                    (let [[root role] (str/split name ".")]
+                      [(if (= root "color") 0 1)
+                       (if (contains? preferred role) 0 1)
+                       name]))
+                  names))))
 
 ;; --- Slots
 
@@ -67,7 +101,9 @@
 
 (defn- slot->result
   [ctx rule page-id shape {:keys [attribute raw color]}]
-  (let [candidates (get-in ctx [:color-index color])
+  (let [roles      (merge default-color-roles (get-in ctx [:options :color-roles]))
+        candidates (some-> (get-in ctx [:color-index color])
+                           (rank-candidates (slot-kind shape attribute) roles))
         expected   (first candidates)
         attr-label (if (= attribute :fill) "fill" "stroke")]
     (if (some? expected)

@@ -53,10 +53,19 @@
   (when-let [template (d/seek #(= (:id %) template-id)
                               (::setup/templates cfg))]
     (let [dest (fs/join fs/*cwd* "builtin-templates")
-          path (or (:path template) (fs/join dest template-id))]
+          path (or (:path template) (fs/join dest template-id))
+          ;; Proto Care: templates bundled with the backend as classpath
+          ;; resources (no download needed).
+          res  (some-> (:resource template) io/resource)]
 
-      (if (fs/exists? path)
+      (cond
+        (some? res)
+        (io/input-stream res)
+
+        (fs/exists? path)
         (io/input-stream path)
+
+        :else
         (let [resp (http/req-with-redirects cfg
                                             {:method :get :uri (:file-uri template)}
                                             {:response-type :input-stream :sync? true})]

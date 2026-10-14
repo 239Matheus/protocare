@@ -1,4 +1,9 @@
-[{:id "tokens-starter-kit"
+[;; Proto Care: bundled design system used to test governance
+ {:id "protocare-ds"
+  :name "Proto Care Design System"
+  :resource "app/onboarding/protocare-ds.penpot"
+  :file-uri "https://raw.githubusercontent.com/239Matheus/protocare/main/penpot/backend/resources/app/onboarding/protocare-ds.penpot"}
+ {:id "tokens-starter-kit"
   :name "Design tokens starter kit"
   :file-uri "https://raw.githubusercontent.com/penpot/penpot-files/refs/heads/main/Tokens%20starter%20kit.penpot"}
  {:id "penpot-design-system"

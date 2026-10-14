@@ -103,6 +103,17 @@ Plano original:
 - Removido o botão de governança do header e a flag de layout `:governance` (o modo substitui).
 - Pendente: mensagens das regras vêm do engine em inglês; localizar no frontend por `rule-id` + parâmetros.
 
+## Fase 4.2 — Design system embutido (2026-10-14)
+
+- `penpot/protocare/design-system/`: `tokens.json` (DTCG: Primitives, Typography, Semantic Light/Dark, temas Mode/Light e Mode/Dark), `build.mjs` (gera o `.penpot` com `@penpot/library`), `thumbnail.py`.
+- Modelo embutido `protocare-ds` (primeiro em "Bibliotecas e Modelos"), lido do classpath: `app.setup.templates` passou a aceitar `:resource`.
+- Tela de teste com 5 erros intencionais; validado no devenv: auditoria encontra 5 (4 corrigíveis), após corrigir sobra 1 e `resolved-since-previous` = 4.
+- Correções no fork descobertas aqui:
+  - `fb/add-tokens-lib` (common) passa a gravar o `tokens-status` a partir dos temas marcados na lib; antes, arquivos gerados pelo construtor abriam com todos os temas inativos.
+  - `@penpot/library` passa a exportar `tokens-status.json` (mesmo formato do exportador v3 do backend).
+  - Engine: arquivo sem `tokens-status` usa os temas marcados na lib (como a migração do Penpot).
+  - Regra `token/color`: candidatos ordenados de forma determinística (semântico antes de paleta; papel `text`/`border`/`bg|action|feedback` conforme o atributo). Ex.: texto branco sugere `color.text.inverse`, não `color.bg.surface`.
+
 ## Fase 5 — Dashboard do gestor
 
 - Rota no dashboard: Overview (projetos auditados, auditorias recentes, violações abertas/críticas, aderência, acessibilidade), Trends, Projects, Categories.

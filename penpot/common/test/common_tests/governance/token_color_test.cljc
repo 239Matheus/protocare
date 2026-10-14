@@ -12,6 +12,7 @@
    [app.common.test-helpers.ids-map :as thi]
    [app.common.test-helpers.shapes :as ths]
    [app.common.test-helpers.tokens :as tht]
+   [app.common.types.file :as ctf]
    [app.common.types.tokens-lib :as ctob]
    [app.common.types.tokens-status :as ctos]
    [app.common.uuid :as uuid]
@@ -19,6 +20,7 @@
    [app.governance.context :as gctx]
    [app.governance.engine :as engine]
    [app.governance.fix :as fix]
+   [app.governance.rules.token-color :as token-color]
    [clojure.test :as t]))
 
 (t/use-fixtures :each thi/test-fixture)
@@ -215,3 +217,34 @@
   (t/testing "a new rule activates its area without other changes"
     (let [rules [{:id "a11y/contrast" :category "accessibility"}]]
       (t/is (true? (areas/active? :accessibility rules))))))
+
+(t/deftest candidates-are-ranked-by-role
+  (let [names ["palette.gray.0" "color.text.inverse" "color.bg.surface"]
+        roles token-color/default-color-roles]
+    (t/testing "text prefers text tokens"
+      (t/is (= "color.text.inverse"
+               (first (token-color/rank-candidates names :text roles)))))
+    (t/testing "shape fill prefers background tokens"
+      (t/is (= "color.bg.surface"
+               (first (token-color/rank-candidates names :fill roles)))))
+    (t/testing "semantic tokens always come before palette tokens"
+      (t/is (= "palette.gray.0"
+               (last (token-color/rank-candidates names :stroke roles)))))))
+
+(t/deftest files-without-token-status-use-themes-marked-in-the-lib
+  (let [lib  (ctob/read-multi-set-dtcg
+              {"core" {"brand" {"$type" "color" "$value" "#6750a4"}}
+               "$themes" [{"name" "Light"
+                           "group" "Mode"
+                           "description" ""
+                           "isSource" false
+                           "selectedTokenSets" {"core" "enabled"}}]
+               "$metadata" {"tokenSetOrder" ["core"]
+                            "activeThemes" ["Mode/Light"]
+                            "activeSets" ["core"]}})
+        file (-> (thf/sample-file :file-no-status)
+                 (ctf/update-file-data #(-> %
+                                            (assoc :tokens-lib lib)
+                                            (dissoc :tokens-status))))
+        ctx  (gctx/build-context file)]
+    (t/is (= ["brand"] (get-in ctx [:color-index "#6750a4"])))))

@@ -82,7 +82,10 @@
                      fdata
                      (some-> (get libraries source-id) ctf/file-data))
         tokens-lib (some-> source cfo/get-tokens-lib)
+        ;; Files without an activation status (legacy or tool-built) use
+        ;; the themes marked as active in the lib, like Penpot's migration.
         status     (or (cfo/get-tokens-status fdata)
+                       (some-> tokens-lib cfo/make-tokens-status-from-lib)
                        (ctos/make-tokens-status))]
     (if (some? tokens-lib)
       (cfo/get-tokens-in-active-sets status tokens-lib)

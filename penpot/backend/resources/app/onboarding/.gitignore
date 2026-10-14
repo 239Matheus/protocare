@@ -1,0 +1,3 @@
+# Proto Care: the bundled design system template is versioned on purpose
+# (penpot/.gitignore ignores *.penpot).
+!protocare-ds.penpot

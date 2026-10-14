@@ -15,6 +15,7 @@
    [app.common.files.changes :as ch]
    [app.common.files.helpers :as cph]
    [app.common.files.migrations :as fmig]
+   [app.common.files.tokens :as cfo]
    [app.common.geom.shapes :as gsh]
    [app.common.schema :as sm]
    [app.common.svg :as csvg]
@@ -25,6 +26,7 @@
    [app.common.types.page :as types.page]
    [app.common.types.path :as types.path]
    [app.common.types.shape :as types.shape]
+   [app.common.types.tokens-status :as ctos]
    [app.common.types.typography :as types.typography]
    [app.common.types.variant :as types.variant]
    [app.common.uuid :as uuid]
@@ -487,10 +489,19 @@
 
 (defn add-tokens-lib
   [state tokens-lib]
-  (-> state
-      (commit-change
-       {:type :set-tokens-lib
-        :tokens-lib tokens-lib})))
+  ;; Proto Care: also store the activation status (active themes and sets
+  ;; marked in the lib, e.g. DTCG `activeThemes`). Without it, files built
+  ;; here open with every theme inactive, because the migration that derives
+  ;; the status from the lib does not run on freshly built files.
+  (let [status (cfo/make-tokens-status-from-lib tokens-lib)]
+    (-> state
+        (commit-change
+         {:type :set-tokens-lib
+          :tokens-lib tokens-lib})
+        (commit-change
+         {:type :set-tokens-status
+          :theme-ids (ctos/get-active-theme-ids status)
+          :set-ids (ctos/get-active-set-ids status)}))))
 
 (defn delete-shape
   [file id]

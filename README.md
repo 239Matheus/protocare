@@ -10,6 +10,7 @@ Estado atual (vertical slice **Color Token Governance**, ponta a ponta):
 - Barra flutuante com os modos **Design · Protótipo · Inspecionar · Auditoria**, no lugar das abas da sidebar (como no Figma).
 - Modo **Auditoria**: Executar auditoria, áreas (Design System, Acessibilidade, Qualidade da interface, Semântica das camadas, Teste de usabilidade), filtros, Ir para o elemento (inclusive entre páginas), Corrigir com confirmação e undo, Ignorar. Hoje só a área Design System tem regras; as outras aparecem como "Em breve" e ativam sozinhas quando ganharem regras.
 - Badge no Inspect quando uma cor é literal (sem token).
+- **Proto Care DS** embutido: design system de exemplo (tokens com temas Light/Dark, componentes e uma tela de teste com erros intencionais), disponível como primeiro modelo em "Bibliotecas e Modelos". Detalhes em `penpot/protocare/design-system/README.md`.
 - Política por time (regras, severidade) e papéis `designer`, `design-ops`, `ds-admin`.
 - RPC de saúde agregada por projeto e por time (sem ranking de pessoas).
 
@@ -56,12 +57,13 @@ O app está pronto quando o backend logar `welcome to penpot` e o frontend `[:ma
 ## Testar o fluxo de governança
 
 1. Abra `http://localhost:3450`, clique em **Criar uma conta** e depois em **Criar conta de demonstração**.
-2. No dashboard, em "Bibliotecas e Modelos", adicione **Design tokens starter kit** e abra o arquivo.
-3. Desenhe um retângulo (tecla `R`) e, no painel Design, dê a ele a cor `#087EB4` (valor do token `blue.500`).
-4. Aguarde o salvamento automático (alguns segundos). Na barra flutuante do topo, clique em **Auditoria** e depois em **Executar auditoria**.
-5. Em **Áreas de auditoria**, clique em **Design System** para filtrar. No card do retângulo: o ícone de mira (**Ir para o elemento**) seleciona e centraliza; **Corrigir** abre a confirmação e aplica o token `blue.500`. `Ctrl+Z` desfaz.
-6. Clique em **Executar auditoria** de novo: o problema some e o resumo mostra um a menos.
-7. No modo **Inspecionar**, uma cor literal mostra "Valor literal, sem token aplicado"; a corrigida mostra o token. A barra continua visível para voltar ao **Design**.
+2. No dashboard, em "Bibliotecas e Modelos", clique em **Proto Care Design System** (primeiro card) e confirme. Abra o arquivo "Proto Care DS".
+3. Vá para a página **Tela de teste**. Na barra flutuante, clique em **Auditoria** e depois em **Executar auditoria**. Aparecem 5 problemas, 4 corrigíveis.
+4. Em cada card: o ícone de mira (**Ir para o elemento**) seleciona e centraliza; **Corrigir** abre a confirmação e aplica o token sugerido. `Ctrl+Z` desfaz.
+5. Aguarde alguns segundos (salvamento automático) e clique em **Executar auditoria** de novo: sobra só o texto com `#333333`, uma cor que não existe no DS.
+6. No modo **Inspecionar**, cores literais mostram "Valor literal, sem token aplicado".
+
+Para testar num arquivo seu, importe `penpot/protocare/design-system/tokens.json` na aba TOKENS e desenhe usando cores literais e tokens.
 
 ## Desenvolvendo no Windows
 

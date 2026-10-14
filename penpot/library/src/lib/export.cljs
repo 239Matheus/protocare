@@ -9,6 +9,7 @@
   (:require
    [app.common.data :as d]
    [app.common.files.builder :as fb]
+   [app.common.files.tokens :as cfo]
    [app.common.json :as json]
    [app.common.media :as media]
    [app.common.schema :as sm]
@@ -153,6 +154,14 @@
       (list [(str "files/" id "/tokens.json")
              (delay (-> tokens-lib
                         encode-tokens-lib
+                        json/encode))]))
+
+    ;; Proto Care: activation status, same layout as the backend v3
+    ;; exporter (theme and set names, resolved back to ids on import).
+    (when-let [tokens-status (get data :tokens-status)]
+      (list [(str "files/" id "/tokens-status.json")
+             (delay (-> tokens-status
+                        (cfo/ids->names (get data :tokens-lib))
                         json/encode))])))))
 
 (defn- generate-files-export-procs
